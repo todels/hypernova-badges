@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hypernova Badges</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span id="logo"></span>Hypernova Badges <small>creator</small></div>
+  <nav id="tabs">
+    <button data-tab="library" class="on">Library</button>
+    <button data-tab="editor">Editor</button>
+    <button data-tab="generator">Generator</button>
+    <button data-tab="rules">Rules</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="stat" id="stat"></div>
+</header>
+<main>
+  <section class="view on" id="library"></section>
+  <section class="view" id="editor">
+    <aside class="side" id="ed-controls"></aside>
+    <div class="stage" id="ed-stage"></div>
+    <aside class="side right" id="ed-inspector"></aside>
+  </section>
+  <section class="view" id="generator">
+    <aside class="side gen-controls" id="gen-controls"></aside>
+    <div class="gen-out" id="gen-out"></div>
+  </section>
+  <section class="view" id="rules"></section>
+</main>
+
+<dialog id="dlg-shape">
+  <div class="dh">Import a base shape</div>
+  <div class="db">
+    <div class="note">Paste an SVG (or just a path <code>d</code>). The tool finds the vertical axis, keeps the right half and mirrors it, so the result is always perfectly symmetrical, even if the drawing is a little off. One closed outline per shape (no holes).</div>
+    <textarea id="shape-src" placeholder="<svg ...><path d=&quot;M...&quot;/></svg>"></textarea>
+    <div class="row r2">
+      <label class="f"><span>Name</span><input type="text" id="shape-name" placeholder="e.g. flame"></label>
+      <label class="f"><span>Use as</span><select id="shape-kind"><option value="glyph">Glyph</option><option value="plate">Plate / gem</option></select></label>
+    </div>
+    <div id="shape-preview" class="anat"></div>
+    <div class="err" id="shape-err"></div>
+  </div>
+  <div class="df"><button class="btn" data-close>Cancel</button><button class="btn primary" id="shape-save">Add shape</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

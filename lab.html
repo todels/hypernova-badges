@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shape Lab</title>
+<style>
+  :root { --bg: #08080a; --panel: #111114; --line: #24242a; --text: #ececf0; --muted: #8b8b95; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 Inter, ui-sans-serif, -apple-system, sans-serif; }
+  header { padding: 22px 28px 6px; }
+  h1 { margin: 0; font-size: 18px; }
+  header p { margin: 4px 0 0; color: var(--muted); max-width: 760px; }
+  section { padding: 18px 28px; }
+  h2 { font-size: 13px; margin: 0 0 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .cell { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .cell .art { display: flex; align-items: flex-end; gap: 8px; justify-content: center; background: #000; border-radius: 8px; padding: 6px; }
+  .cell .meta { margin-top: 8px; display: flex; justify-content: space-between; color: var(--muted); }
+  .cell .meta b { color: var(--text); font-weight: 600; }
+  .cell.cut { opacity: .35; }
+  .cell .why { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  svg { display: block; }
+  .big { overflow: hidden; display: grid; place-items: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Shape lab</h1>
+  <p>Themed silhouettes: the gem is the icon, the plate is the gem grown and smoothed, the inner recess is the gem shrunk. Same layers, bevels and blend rules as the Figma badges. Each round keeps the good ones and drops the rest.</p>
+</header>
+<main id="rounds"></main>
+<script type="module">
+import { renderBadge } from './engine.js';
+import * as T from './themes.js';
+const q = new URLSearchParams(location.search), S = +(q.get('scale') || 2), only = q.get('round');
+const rounds = Object.keys(T).filter((k) => k.startsWith('THEME_ROUND_')).filter((k) => !only || k.endsWith('_' + only)).sort().reverse();
+document.getElementById('rounds').innerHTML = rounds.map((r) => `
+  <section><h2>${r.replace('THEME_ROUND_', 'Round ')}</h2><div class="grid">
+    ${T[r].map((b) => `<div class="cell ${b.cut ? 'cut' : ''}"><div class="art"><div class="big" style="width:${118 * S}px;height:${118 * S}px">${renderBadge(b, { scale: S })}</div>${renderBadge(b, { scale: 0.5 })}</div>
+      <div class="meta"><b>${b.name}</b><span>${b.rarity}, L${b.level}</span></div>${b.why ? `<div class="why">${b.why}</div>` : ''}</div>`).join('')}
+  </div></section>`).join('');
+window.ready = true;
+</script>
+</body>
+</html>

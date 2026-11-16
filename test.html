@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Badge test</title>
+<style>body{margin:0;background:#000}#out>div{width:150px;height:150px}</style></head>
+<body><div id="out"></div>
+<script type="module">
+import { renderBadge } from './engine.js';
+import { FIGMA_BADGES, ALL_BADGES, FAMILIES } from './catalog.js';
+import { GLYPH_SETS, placeGlyphs } from './presets.js';
+window.badges = FIGMA_BADGES;
+window.all = ALL_BADGES;
+window.show = (id, scale = 1) => {
+  const b = ALL_BADGES.find((x) => x.id === id);
+  const out = document.getElementById('out');
+  out.innerHTML = `<div id="b" style="width:${150 * scale}px;height:${150 * scale}px">${renderBadge(b.figmaRarity ? { ...b, rarity: b.figmaRarity } : b, { scale, background: b.refBg })}</div>`;
+  return true;
+};
+window.sheet = (ids, scale = 1, cols = 8) => {
+  const out = document.getElementById('out');
+  out.innerHTML = `<div id="b" style="height:auto;display:grid;grid-template-columns:repeat(${cols},${150 * scale}px);width:${cols * 150 * scale}px">${ids.map((id) => { const b = ALL_BADGES.find((x) => x.id === id); return b ? renderBadge(b, { scale }) : `<div></div>`; }).join('')}</div>`;
+  return true;
+};
+window.genSheet = (fams, sets, rarity, level, scale = 1) => {
+  const specs = [];
+  for (const f of fams) for (const k of sets) { const F = FAMILIES[f]; specs.push({ rarity, level, plate: F.plate, gem: F.gem, glyphs: placeGlyphs(GLYPH_SETS[k], F.gem).map((g) => ({ light: F.light, ...g })), ...(f === 'star' || f === 'lens' ? { dotPhase: 'split' } : {}), ...(F.spec || {}) }); }
+  document.getElementById('out').innerHTML = `<div id="b" style="height:auto;display:grid;grid-template-columns:repeat(${sets.length},${150 * scale}px);width:${sets.length * 150 * scale}px">${specs.map((s) => renderBadge(s, { scale })).join('')}</div>`;
+  return specs.length;
+};
+window.ready = true;
+</script></body></html>
