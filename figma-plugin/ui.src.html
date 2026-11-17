@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: var(--figma-color-bg, #2c2c2c);
+    --text: var(--figma-color-text, #fff);
+    --muted: var(--figma-color-text-secondary, #b3b3b3);
+    --border: var(--figma-color-border, #444);
+    --brand: var(--figma-color-bg-brand, #0d99ff);
+    --hover: var(--figma-color-bg-hover, rgba(255, 255, 255, .06));
+    --danger: var(--figma-color-text-danger, #f24822);
+    --ok: var(--figma-color-text-success, #14ae5c);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font: 11px Inter, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; user-select: none; display: flex; flex-direction: column; padding: 12px; gap: 10px;
+  }
+  #drop {
+    flex: 1; border: 1px dashed var(--border); border-radius: 6px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 12px; outline: none; cursor: default;
+  }
+  #drop:focus-visible, #drop.over { border-color: var(--brand); background: var(--hover); }
+  #drop b { font-size: 13px; font-weight: 600; }
+  #drop span { color: var(--muted); line-height: 1.45; }
+  kbd { font: inherit; border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; }
+  #status { min-height: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #status.ok { color: var(--ok); }
+  #status.err { color: var(--danger); }
+</style>
+</head>
+<body>
+  <div id="drop" tabindex="0">
+    <b>Paste a badge</b>
+    <span>In the Hypernova badge creator, click <i>Copy for Figma</i>, then press <kbd>⌘V</kbd> here.<br>You can also drop badge SVG files.</span>
+  </div>
+  <div id="status">Click here first if ⌘V does nothing.</div>
+<!-- convert.js -->
+<script>
+  const drop = document.getElementById('drop'), status = document.getElementById('status');
+  const say = (t, cls = '') => { status.textContent = t; status.className = cls; };
+  function insert(text) {
+    let badges;
+    try { badges = hbFigma.fromText(text); } catch (e) { say('Could not read that SVG (' + e.message + ')', 'err'); return; }
+    if (!badges.length) { say('No badge SVG in the clipboard. Copy one in the creator first.', 'err'); return; }
+    say('Building ' + badges.length + (badges.length === 1 ? ' badge…' : ' badges…'));
+    parent.postMessage({ pluginMessage: { type: 'insert', badges } }, '*');
+  }
+  onmessage = (e) => {
+    const m = e.data.pluginMessage;
+    if (!m) return;
+    if (m.type === 'done') say('Added ' + (m.names.length === 1 ? m.names[0] : m.names.length + ' badges'), 'ok');
+    if (m.type === 'error') say('Could not build it (' + m.message + ')', 'err');
+  };
+  document.addEventListener('paste', (e) => {
+    e.preventDefault();
+    insert(e.clipboardData.getData('text/plain') || e.clipboardData.getData('text/html'));
+  });
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', async (e) => {
+    e.preventDefault(); drop.classList.remove('over');
+    const files = [...e.dataTransfer.files].filter((f) => /svg/i.test(f.type) || /\.svg$/i.test(f.name));
+    insert((await Promise.all(files.map((f) => f.text()))).join('\n'));
+  });
+  drop.focus();
+</script>
+</body>
+</html>

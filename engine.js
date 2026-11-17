@@ -794,16 +794,19 @@ export function renderBadge(spec, opts = {}) {
   const body = [];
   let gid = 0;
   const nid = (s) => `${id}${s}${++gid}`;
+  // layer tags for the Figma plugin: all elements of one Figma layer share data-n, data-l is its name
+  let LN = 0;
+  const layer = (name) => ` data-n="${++LN}" data-l="${name}"`;
   const bg = opts.background ?? spec.background ?? '#000000';
-  if (bg && bg !== 'none') body.push(`<rect width="${SIZE}" height="${SIZE}" fill="${bg}"/>`);
+  if (bg && bg !== 'none') body.push(`<rect width="${SIZE}" height="${SIZE}" fill="${bg}" data-l="bg"/>`);
 
   // bevel stroke: 1px, black (top) to white (bottom), overlay. inside or outside the shape.
-  const bevel = (d, box, where = 'inside', lift = 0) => {
+  const bevel = (d, box, where = 'inside', lift = 0, a = '') => {
     const cid = nid('c'), gidd = nid('g');
     defs.push(linGrad(gidd, box, [0.5, -lift], [0.5, 1 - lift], bevelStops));
     if (where === 'inside') defs.push(`<clipPath id="${cid}"><path d="${d}"/></clipPath>`);
     else defs.push(`<clipPath id="${cid}"><path d="M-10 -10H${SIZE + 10}V${SIZE + 10}H-10Z${d}" clip-rule="evenodd" fill-rule="evenodd"/></clipPath>`);
-    body.push(`<path d="${d}" fill="none" stroke="url(#${gidd})" stroke-width="2" clip-path="url(#${cid})" style="mix-blend-mode:overlay"/>`);
+    body.push(`<path d="${d}" fill="none" stroke="url(#${gidd})" stroke-width="2" clip-path="url(#${cid})" style="mix-blend-mode:overlay"${a}/>`);
   };
 
   // ---- plate
@@ -814,10 +817,10 @@ export function renderBadge(spec, opts = {}) {
     const rg = nid('r');
     const m = [-0.24603 * pbox.w, 0.25 * pbox.h, -0.73406 * pbox.w, -0.40635 * pbox.h, pbox.x + pbox.w / 2, pbox.y + pbox.h / 2].map(f);
     defs.push(`<radialGradient id="${rg}" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(${m.join(' ')})"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>`);
-    const tint = pl.tint || pal.plate;
-    body.push(`<path d="${pp.full}" fill="${tint.color}" fill-opacity="${tint.alpha}"/>`);
-    body.push(`<path d="${pp.full}" fill="url(#${rg})" fill-opacity="0.2"/>`);
-    bevel(pp.full, pbox, 'inside');
+    const tint = pl.tint || pal.plate, A = layer('Plate');
+    body.push(`<path d="${pp.full}" fill="${tint.color}" fill-opacity="${tint.alpha}"${A}/>`);
+    body.push(`<path d="${pp.full}" fill="url(#${rg})" fill-opacity="0.2"${A}/>`);
+    bevel(pp.full, pbox, 'inside', 0, A);
   }
 
   // gem: palette gradient, inside bevel, then the left facet (split) with its own bevel
@@ -847,25 +850,26 @@ export function renderBadge(spec, opts = {}) {
       const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
       const fb = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
       const d = `M${q.map((p) => `${f(p[0])} ${f(p[1])}`).join('L')}Z`;
-      const lg = nid('z');
+      const lg = nid('z'), A = layer('Bezel ' + role);
       defs.push(linGrad(lg, fb, sh.from, sh.to, [[0, col(sh.c[0]), 1], [1, col(sh.c[1]), 1]]));
-      body.push(`<path d="${d}" fill="url(#${lg})"/>`);
-      bevel(d, fb, 'inside');
+      body.push(`<path d="${d}" fill="url(#${lg})"${A}/>`);
+      bevel(d, fb, 'inside', 0, A);
     }
     // the stone: a normal gem in the inner outline, in the badge colour unless bezel.stone names one
     const { stone, ...inner } = ib;
-    drawGem({ shape: el.shape, split: el.split, ...inner, x: (ib.x || 0) + dx }, PALETTES[stone] || P);
+    drawGem({ shape: el.shape, split: el.split, ...inner, x: (ib.x || 0) + dx }, PALETTES[stone] || P, 0, 'Stone');
   };
-  const drawGem = (el, P, dx = 0) => {
+  const drawGem = (el, P, dx = 0, label = 'Gem') => {
     if (el.bezel) return drawBezel(el, P, dx);
     const gbox = boxOf({ ...el, x: (el.x || 0) + dx });
     const gp = shapePaths(el.shape, gbox, el.params);
-    const gg = nid('l');
+    const gg = nid('l'), A = layer(label);
     defs.push(linGrad(gg, gbox, P.gem.from, P.gem.to, P.gem.stops, GEM_REF));
-    body.push(`<path d="${gp.full}" fill="url(#${gg})"/>`);
-    bevel(gp.full, gbox, 'inside');
+    body.push(`<path d="${gp.full}" fill="url(#${gg})"${A}/>`);
+    bevel(gp.full, gbox, 'inside', 0, A);
     if (el.split !== false) {
       const hbox = { x: gbox.x, y: gbox.y, w: gbox.w / 2, h: gbox.h };
+      const H = layer(label + ' facet');
       if (opts.target === 'figma') {
         // native layer stack, exactly as built in Figma
         for (const fl of P.half) {
@@ -873,9 +877,9 @@ export function renderBadge(spec, opts = {}) {
             const hg = nid('h');
             const stops = fl.stops === 'gem' ? P.gem.stops : fl.stops;
             defs.push(linGrad(hg, fl.space === 'half' ? hbox : gbox, fl.from, fl.to, stops, fl.space === 'half' ? HALF_REF : GEM_REF));
-            body.push(`<path d="${gp.left}" fill="url(#${hg})"${blendStyle(fl.blend)}/>`);
+            body.push(`<path d="${gp.left}" fill="url(#${hg})"${blendStyle(fl.blend)}${H}/>`);
           } else {
-            body.push(`<path d="${gp.left}" fill="${fl.color}" fill-opacity="${fl.alpha}"${blendStyle(fl.blend)}/>`);
+            body.push(`<path d="${gp.left}" fill="${fl.color}" fill-opacity="${fl.alpha}"${blendStyle(fl.blend)}${H}/>`);
           }
         }
       } else {
@@ -888,9 +892,9 @@ export function renderBadge(spec, opts = {}) {
         }
         const hg = nid('h');
         defs.push(linGrad(hg, base.box, base.from, base.to, bakeStops(base.stops, fills), base.ref));
-        body.push(`<path d="${gp.left}" fill="url(#${hg})"/>`);
+        body.push(`<path d="${gp.left}" fill="url(#${hg})"${H}/>`);
       }
-      bevel(gp.left, gbox, 'inside');
+      bevel(gp.left, gbox, 'inside', 0, H);
     }
   };
   if (spec.gem) drawGem(spec.gem, PALETTES[spec.gem.rarity] || pal);
@@ -900,9 +904,10 @@ export function renderBadge(spec, opts = {}) {
   for (const g of spec.glyphs || []) {
     const xs = g.x ? [g.x, -g.x] : [0];
     for (const x of xs) {
-      if (g.style === 'inlay') { drawGem(g, PALETTES[g.rarity] || pal, x); continue; }
+      if (g.style === 'inlay') { drawGem(g, PALETTES[g.rarity] || pal, x, 'Inlay'); continue; }
       const { d, box } = glyphGeometry(g, x);
       const style = g.style || 'glass';
+      const A = layer(g.text != null ? 'Number' : g.of ? 'Echo' : { glass: 'Glass', 'glass-tint': 'Glass', recess: 'Recess', solid: 'Solid' }[style] || 'Glyph');
       const light = LIGHTS[g.light] || LIGHTS.center;
       if (style === 'glass' || style === 'glass-tint') {
         const lg = nid('q');
@@ -913,16 +918,16 @@ export function renderBadge(spec, opts = {}) {
         }
         defs.push(linGrad(lg, box, light.from, light.to, stops));
         // fill: a white base under the glass, so the glyph reads as a solid crystal (Figma K_5)
-        if (g.fill) body.push(`<path d="${d}" fill="#FFFFFF" fill-opacity="${g.fill}"${g.evenodd ? ' fill-rule="evenodd"' : ''}/>`);
-        body.push(`<path d="${d}" fill="url(#${lg})"${g.evenodd ? ' fill-rule="evenodd"' : ''}/>`);
+        if (g.fill) body.push(`<path d="${d}" fill="#FFFFFF" fill-opacity="${g.fill}"${g.evenodd ? ' fill-rule="evenodd"' : ''}${A}/>`);
+        body.push(`<path d="${d}" fill="url(#${lg})"${g.evenodd ? ' fill-rule="evenodd"' : ''}${A}/>`);
         // shade: the right half darkened a little, the crystal's own facet split
-        if (g.shade) { const hp = shapePaths(g.shape, box, g.params); body.push(`<path d="${moveRight(hp)}" fill="#000000" fill-opacity="${g.shade}" style="mix-blend-mode:overlay"/>`); }
+        if (g.shade) { const hp = shapePaths(g.shape, box, g.params); body.push(`<path d="${moveRight(hp)}" fill="#000000" fill-opacity="${g.shade}" style="mix-blend-mode:overlay"${layer('Shade')}/>`); }
       } else if (style === 'recess') {
-        body.push(`<path d="${d}" fill="#000000" fill-opacity="${g.alpha ?? 0.49}"${g.evenodd ? ' fill-rule="evenodd"' : ''}${blendStyle(g.blend)}/>`);
+        body.push(`<path d="${d}" fill="#000000" fill-opacity="${g.alpha ?? 0.49}"${g.evenodd ? ' fill-rule="evenodd"' : ''}${blendStyle(g.blend)}${A}/>`);
       } else if (style === 'solid') {
-        body.push(`<path d="${d}" fill="${g.color || '#FFFFFF'}" fill-opacity="${g.alpha ?? 1}"${blendStyle(g.blend)}/>`);
+        body.push(`<path d="${d}" fill="${g.color || '#FFFFFF'}" fill-opacity="${g.alpha ?? 1}"${blendStyle(g.blend)}${A}/>`);
       }
-      if (g.bevel !== false) bevel(d, box, 'outside', light.lift);
+      if (g.bevel !== false) bevel(d, box, 'outside', light.lift, A);
     }
   }
 
@@ -935,17 +940,17 @@ export function renderBadge(spec, opts = {}) {
     const cid = nid('c'), lg = nid('v');
     defs.push(`<clipPath id="${cid}"><path d="${op.full}"/></clipPath>`);
     defs.push(linGrad(lg, ob, [0.5, 0], [0.5, 1], [[0.9, '#FFFFFF', 0], [0.9008, '#FFFFFF', 1]]));
-    body.push(`<path d="${op.full}" fill="none" stroke="url(#${lg})" stroke-width="2" clip-path="url(#${cid})"/>`);
+    body.push(`<path d="${op.full}" fill="none" stroke="url(#${lg})" stroke-width="2" clip-path="url(#${cid})"${layer('Bottom line')}/>`);
   }
   if (orn.topBar) {
     const tb = orn.topBar === true ? {} : orn.topBar;
     const w = tb.w ?? 6, y = tb.y ?? pbox.y + 4;
-    body.push(`<rect x="${CX - w / 2}" y="${y}" width="${w}" height="1" fill="#FFFFFF"${tb.alpha ? ` fill-opacity="${tb.alpha}"` : ''}/>`);
+    body.push(`<rect x="${CX - w / 2}" y="${y}" width="${w}" height="1" fill="#FFFFFF"${tb.alpha ? ` fill-opacity="${tb.alpha}"` : ''}${layer('Top bar')}/>`);
   }
   if (orn.edgeBars) {
     // four short lines, top, bottom, left and right, `inset` px inside the plate's box (G_12)
     const eb = orn.edgeBars === true ? {} : orn.edgeBars;
-    const w = eb.w ?? 6, i = eb.inset ?? 4, a = eb.alpha ? ` fill-opacity="${eb.alpha}"` : '';
+    const w = eb.w ?? 6, i = eb.inset ?? 4, a = (eb.alpha ? ` fill-opacity="${eb.alpha}"` : '') + layer('Edge bars');
     const top = pbox.y + i, bot = pbox.y + pbox.h - i - 1, lft = pbox.x + i, rgt = pbox.x + pbox.w - i - 1;
     body.push(`<rect x="${f(CX - w / 2)}" y="${f(top)}" width="${w}" height="1" fill="#FFFFFF"${a}/>`);
     body.push(`<rect x="${f(CX - w / 2)}" y="${f(bot)}" width="${w}" height="1" fill="#FFFFFF"${a}/>`);
@@ -961,14 +966,16 @@ export function renderBadge(spec, opts = {}) {
     const ci = nid('c'), cs = nid('c');
     defs.push(`<clipPath id="${ci}"><path d="${op.full}"/></clipPath>`);
     defs.push(`<clipPath id="${cs}"><rect x="0" y="0" width="${f(ob.x + show)}" height="${SIZE}"/><rect x="${f(ob.x + w - show)}" y="0" width="${f(SIZE - ob.x - w + show)}" height="${SIZE}"/></clipPath>`);
-    body.push(`<g clip-path="url(#${cs})"><path d="${op.full}" fill="none" stroke="#FFFFFF" stroke-width="2" clip-path="url(#${ci})"/></g>`);
+    body.push(`<g clip-path="url(#${cs})"><path d="${op.full}" fill="none" stroke="#FFFFFF" stroke-width="2" clip-path="url(#${ci})"${layer('Side tips')}/></g>`);
   }
 
   // ---- level dots
-  for (const [x, y] of dotPositions(spec)) body.push(`<rect x="${x}" y="${y}" width="2" height="2" fill="#FFFFFF"/>`);
+  const DA = layer('Dots');
+  for (const [x, y] of dotPositions(spec)) body.push(`<rect x="${x}" y="${y}" width="2" height="2" fill="#FFFFFF"${DA}/>`);
 
   const scale = opts.scale || 1;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE * scale}" height="${SIZE * scale}" viewBox="0 0 ${SIZE} ${SIZE}" fill="none"><defs>${defs.join('')}</defs>${body.join('')}</svg>`;
+  const nm = [spec.id, spec.name].filter(Boolean).join(' ').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE * scale}" height="${SIZE * scale}" viewBox="0 0 ${SIZE} ${SIZE}" fill="none"${nm ? ` data-name="${nm}"` : ''}><defs>${defs.join('')}</defs>${body.join('')}</svg>`;
 }
 
 // Level numbers: PolySans digits as paths. g.text, g.h = cap height in px, g.y = top of the caps,

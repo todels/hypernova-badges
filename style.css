@@ -52,6 +52,8 @@ main { flex: 1; min-height: 0; display: flex; }
   padding: 6px 11px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
 .btn:hover { border-color: #44444e; }
+.btn.small { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
+.series h2 .copyfam { margin-left: auto; font-weight: 500; color: var(--text, #ddd); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { background: #9a70ff; }
 .btn.sm { padding: 3px 8px; font-size: 12px; }

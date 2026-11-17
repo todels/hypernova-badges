@@ -23,6 +23,7 @@ Then open http://localhost:5230/
 | `themes.js` | Themed silhouettes (crown, flame, padlock, anchor...) where the gem is the icon, in review rounds |
 | `lab.html` | Shape lab, http://localhost:5230/lab.html, shows every round with keep/cut notes |
 | `test.html` | Hooks for headless screenshot tests |
+| `figma-plugin/` | Figma plugin: pastes badges as native layers (see Into Figma) |
 
 ## Spec
 
@@ -105,9 +106,11 @@ Levels are one family on the brilliant, the diamond, which no badge family uses 
 | Ruby | 100 to 199 | Echo + top bar + bottom line, glass number |
 | Purple | 200+ | Two echoes + top bar + bottom line, glass number |
 
-## Exports
+## Into Figma
 
-`export/` holds single badges as SVG (150 x 150 on the black frame, Figma's native blend layers so they stay editable). Made with `renderBadge(spec, { target: 'figma' })`, the same as "Copy SVG with native blend layers" in the Editor.
+The Figma plugin in `figma-plugin/` pastes badges as native layers: one vector per part with all its fills and blend modes, and the bevels as real 1 px inside or outside strokes, so no masks. Click **Copy for Figma** (Editor, or next to a family in the Library), then press Cmd+V in the plugin. Install and details: `figma-plugin/README.md`.
+
+`export/` holds single badges as SVG (150 x 150 on the black frame, Figma's native blend layers). Made with `renderBadge(spec, { target: 'figma' })`, the same as Copy for Figma. Drop them on the plugin window for native layers; pasted straight onto the canvas, Figma turns the bevels into masks.
 
 ## Open questions
 

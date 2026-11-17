@@ -131,8 +131,10 @@ function card(b, mine = false) {
     ${open ? `<div class="open-why">${esc(open)}</div>` : ''}
   </button>`;
 }
+let LIB_GROUPS = [];
 function renderLibrary() {
   const el = $('#library');
+  LIB_GROUPS = [];
   const groups = new Map();
   // families A to K in catalogue order, then levels
   for (const b of ALL_BADGES) {
@@ -158,7 +160,8 @@ function renderLibrary() {
       : b0.kind === 'level' ? ` on the ${FAMILIES[FAMILY_SHAPES.L].label} base. ${LEVEL_BANDS.map((b) => `${PALETTES[b.rarity].label} ${b.from} to ${b.to}`).join(', ')}. Make any range in the Generator`
       : ` on the ${FAMILIES[b0.family].label} base, ${esc(b0.familyNote)}. ${{ D: 'Colour by catalogue rarity, dots go up one per step', E: 'Colour by catalogue rarity, dots go up one per step; Comeback is a side badge', J: 'All common: silver, 2 dots' }[b0.id[0]] || 'Lowest to rarest; colour and dots by catalogue rarity'}`;
     const nOpen = list.filter((b) => OPEN[b.id]).length;
-    html += `<div class="series"><h2>${esc(series)} <span>${list.length}${note}</span>${nOpen ? `<em class="open-count">${nOpen} open</em>` : ''}</h2>
+    LIB_GROUPS.push(list);
+    html += `<div class="series"><h2>${esc(series)} <span>${list.length}${note}</span>${nOpen ? `<em class="open-count">${nOpen} open</em>` : ''}<button class="btn small copyfam" data-copyfam="${LIB_GROUPS.length - 1}" title="Copies every badge in this family; press &#8984;V in the Hypernova badges plugin in Figma">Copy for Figma</button></h2>
       <div class="grid ${cmp && isFigma ? 'cmp' : ''}">${list.map((b) => card(b)).join('')}</div></div>`;
   }
   el.innerHTML = html;
@@ -167,6 +170,13 @@ $('#library').addEventListener('click', (e) => {
   const m = e.target.closest('#cmp button')?.dataset.m;
   if (m) { S.compare = m; renderLibrary(); return; }
   if (e.target.closest('#lib-new')) { openSpec(blankSpec()); return; }
+  const fam = e.target.closest('[data-copyfam]');
+  if (fam) {
+    const list = LIB_GROUPS[+fam.dataset.copyfam] || [];
+    const text = list.map((b) => renderBadge(b, { target: 'figma' })).join('\n');
+    navigator.clipboard.writeText(text).then(() => toast(`Copied ${list.length} badges. Press \u2318V in the Hypernova badges plugin in Figma.`), () => toast('Could not copy'));
+    return;
+  }
   const c = e.target.closest('[data-open]');
   if (c) {
     const list = c.dataset.mine ? MINE : ALL_BADGES;
@@ -341,10 +351,10 @@ function buildInspector() {
         <button class="btn" data-x="png1">PNG 150</button>
         <button class="btn" data-x="png2">PNG 300</button>
         <button class="btn" data-x="png4">PNG 600</button>
-        <button class="btn wide primary" data-x="copy">Copy SVG for Figma</button>
-        <button class="btn wide" data-x="copyNative">Copy SVG with native blend layers</button>
+        <button class="btn wide primary" data-x="copyNative">Copy for Figma</button>
+        <button class="btn wide" data-x="copy">Copy SVG</button>
       </div>
-      <div class="note">Copy SVG pastes as vector layers in Figma and looks identical everywhere. The native version keeps Figma's layer stack (overlay, linear burn) but browsers cannot show linear burn.</div>
+      <div class="note">Copy for Figma, then press &#8984;V in the Hypernova badges plugin (figma-plugin/ in the repo): one layer per part with all its fills and blend modes, bevels as real 1 px inside or outside strokes, no masks. Copy SVG pastes straight onto the canvas, but Figma turns every bevel into a mask.</div>
     </div>
     <div class="sec"><h3>Library</h3>
       <div class="actions">
@@ -460,7 +470,8 @@ $('#ed-inspector').addEventListener('click', async (e) => {
   }
   if (x === 'copy' || x === 'copyNative') {
     const svg = renderBadge(s, { background: bg, target: x === 'copyNative' ? 'figma' : undefined });
-    try { await navigator.clipboard.writeText(svg); toast('SVG copied. Paste into Figma.'); } catch { download(`${fileName()}.svg`, svg, 'image/svg+xml'); }
+    const msg = x === 'copyNative' ? 'Copied. Press \u2318V in the Hypernova badges plugin in Figma.' : 'SVG copied. Paste into Figma.';
+    try { await navigator.clipboard.writeText(svg); toast(msg); } catch { download(`${fileName()}.svg`, svg, 'image/svg+xml'); }
   }
   if (x === 'save') {
     const i = MINE.findIndex((b) => b.id === s.id);
