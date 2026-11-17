@@ -1164,11 +1164,14 @@ function derive(base, d, smooth = 0) {
 // replace { of: 'gem' | 'plate', d, smooth } elements with concrete derived shapes
 export function resolveDerived(spec) {
   const needs = (e) => e && e.of;
-  if (!needs(spec.plate) && !(spec.glyphs || []).some(needs) && !needs(spec.gem)) return spec;
+  const glyphNeeds = (g) => needs(g) || (g.parts || []).some(needs);
+  if (!needs(spec.plate) && !(spec.glyphs || []).some(glyphNeeds) && !needs(spec.gem)) return spec;
   const out = { ...spec };
   if (needs(out.gem) && out.gem.of === 'plate') out.gem = { ...out.gem, ...derive(out.plate, out.gem.d ?? -12, out.gem.smooth) };
   if (needs(out.plate)) out.plate = { ...out.plate, ...derive(out.gem, out.plate.d ?? 12, out.plate.smooth ?? 0) };
-  out.glyphs = (out.glyphs || []).map((g) => (needs(g) ? { ...g, ...derive(g.of === 'plate' ? out.plate : out.gem, g.d ?? -9, g.smooth) } : g));
+  const resolve = (e) => (needs(e) ? { ...e, ...derive(e.of === 'plate' ? out.plate : out.gem, e.d ?? -9, e.smooth) } : e);
+  // parts can be derived too: a ring cut from two offsets of the gem runs parallel to it
+  out.glyphs = (out.glyphs || []).map((g) => (g.parts && g.parts.some(needs) ? { ...g, parts: g.parts.map(resolve) } : resolve(g)));
   return out;
 }
 

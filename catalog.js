@@ -195,6 +195,8 @@ export const RARITY_DOTS = { common: 2, rare: 3, epic: 4, legendary: 5 };
 const cy = (c, g) => ({ ...g, y: Math.round(c - g.h / 2) });
 const ECHO = { of: 'gem', d: -8, style: 'recess', alpha: 0.21 };
 const ringOf = (outer, inner, style = 'glass') => ({ parts: [outer, inner], evenodd: true, style, shape: outer.shape });
+// a ring between two offsets of the gem (d px in from its outline), parallel to the gem and its echo
+const gemRing = (dOut, dIn, style = 'glass', more = {}) => ({ parts: [{ of: 'gem', d: dOut }, { of: 'gem', d: dIn }], evenodd: true, style, shape: 'derived', ...more });
 const sz = (shape, w, h, c, params, style = 'glass', more = {}) => cy(c, { shape, w, h, style, ...(params ? { params } : {}), ...more });
 
 // flower: petals around a core, 'petal' = one on the axis, 'gap' = a notch on the axis (like the base)
@@ -232,9 +234,9 @@ const NEW_FAMILIES = [
     ['Solid Citizen', 'rare', 'nova 55+', [seal(34, 75, 'recess', { alpha: 0.49 })]],
     ['Strong Hand', 'epic', 'nova 70+', [seal(34, 75)]],
     ['Elite', 'legendary', 'nova 85+', [ECHO, seal(38, 75), seal(16, 75, 'recess', { alpha: 0.49 })]],
-    ['The Maxer', 'legendary', 'nova 95+', [ECHO, ringOf(seal(44, 75), seal(32, 75)), seal(18, 75)],
+    ['The Maxer', 'legendary', 'nova 95+', [ECHO, gemRing(-11, -17), seal(18, 75)],
       { ornaments: { topBar: true } }],
-    ['Comeback', 'rare', 'nova comeback', [ringOf(seal(40, 75), seal(28, 75), 'recess'), seal(14, 70)], { side: true }],
+    ['Comeback', 'rare', 'nova comeback', [gemRing(-13, -19, 'recess'), seal(14, 75)], { side: true }],
   ]],
   ['F', 'F. Identity / OG', 'time-gated, never retrofitted', 'set', [
     ["Founder's Funded", 'rare', 'launch month', [ush(36, 73)]],
@@ -340,13 +342,9 @@ export const ALL_BADGES = [...FIGMA_BADGES, ...NEW_BADGES].sort((a, b) => ORDER.
 const SENT = 'sent to you to redo in Figma';
 export const OPEN = {
   I_2: SENT,
-  D_1: SENT, D_2: SENT, D_3: SENT, D_4: SENT, D_5: SENT,
-  E_1: 'flagged: inner shape did not match the seal (redrawn, not approved)',
-  E_2: 'flagged: inner shape did not match the seal (redrawn, not approved)',
-  E_3: 'flagged: inner shape did not match the seal (redrawn, not approved)',
-  E_4: 'flagged: inner shape did not match the seal (redrawn, not approved)',
-  E_5: 'flagged: inner shape did not match the seal (redrawn, not approved)',
-  F_1: 'flagged: icon too small (was F_3)',
+  D_1: SENT, D_3: SENT, D_4: SENT, D_5: SENT,
+  E_4: 'flagged: misaligned (ring redrawn parallel to the gem, not approved)',
+  E_5: 'flagged: misaligned (ring redrawn parallel to the gem, seal centred, not approved)',
   F_2: SENT,
   F_3: 'flagged: too many shapes (was F_1)',
   G_2: `flagged: make a new Touch Grass (was G_7); ${SENT}`,
