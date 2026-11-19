@@ -41,9 +41,10 @@ Then open http://localhost:5230/
 
 - Everything is centred on x = 75. `x` on a glyph makes a mirrored pair.
 - Glyph styles: `glass`, `glass-tint`, `recess`, `inlay` (a second gem in another colour), `solid`.
-- `light`: `center` or `high` (see Rules).
+- `light`: `center` or `high` (see Rules), or a glyph's own handles from Figma: `{ from, to, bevel: [top, bottom] }` (fractions of the glyph box). The Editor shows these as Custom.
+- Glyph `bevel`: outside by default, `'inside'` (D_3, D_4) or `false`; `bevelW`: width in px (G_5 uses 2).
 - `parts` makes a compound glyph with one gradient and one bevel; `evenodd` cuts holes (rings).
-- Options: `dotPhase` (`auto`, `split`, `anchored`), `dotInset` (default 5), `dotClear` (gap to the gem, default 3), `ornaments` (`topBar`, `bottomChevron`, `sideArrows`, `edgeBars`: four lines top, bottom, left, right), `customColor` (any hex, palette derived).
+- Options: `dots` (dot positions placed by hand in Figma, used while their count matches `level`), `dotPhase` (`auto`, `split`, `anchored`), `dotInset` (default 5), `dotClear` (gap to the gem, default 3), `ornaments` (`topBar`, `bottomChevron`, `sideArrows`, `edgeBars`: four lines top, bottom, left, right), `customColor` (any hex, palette derived).
 - Gem options: `rarity` (a different colour for the gem), `bezel: { w, h, y, params, stone }` (faceted setting around a stone, K_5). Glass glyph options: `fill` (white base, 0 to 1), `shade` (right half darker).
 - `renderBadge(spec, { target: 'figma' })` keeps Figma's native blend layers instead of the baked facet.
 
@@ -52,7 +53,7 @@ Then open http://localhost:5230/
 - Layers: plate (tint, 20% radial, inside bevel), gem (3 stop gradient, inside bevel), left facet (palette recipe, own bevel), glyphs (outside bevel), dots and ornaments.
 - Bevel: 1 px, black to white top to bottom, Overlay.
 - Shapes are defined by their right half and mirrored. Fillets are true circular arcs. Whole pixels, even widths.
-- Dots: all on one line 5 px inside the plate outline (same distance from the edge everywhere), spaced evenly by length along it, skipping anything within 3 px of the gem. Snapped to whole pixels and mirrored.
+- Dots: all on one line 5 px inside the plate outline (same distance from the edge everywhere), spaced evenly by length along it, skipping anything within 3 px of the gem. Snapped to whole pixels and mirrored. D_2 to D_5, E and F use the positions from your Figma frames instead (`dots`), mirrored so every pair is symmetric.
 - Blue's left facet uses Figma's Linear Burn, which subtracts its alpha from every channel. The engine computes it exactly and bakes it, since browsers have no linear burn.
 
 ## Base shapes from Figma
@@ -86,7 +87,9 @@ Each family owns one base shape; no two share one (`FAMILY_SHAPES` in `catalog.j
 
 The octagon is spare (`SPARE_SHAPES`). Names, rarities and tags of D, E, F, G and J come from the catalogue (`NEW_FAMILIES`).
 
-The glyphs are drawn from the family's own outline, never from another family: a flower with 3, 4, 5 then 6 petals (`petals`); the wavy seal gem itself, smaller, and rings of it; smaller U shields; clouds with 3 to 5 fluffs (`puff`) and the cushion itself (rings, stacked stones, a sprout; glyphs can turn with `rot`); the pennant's notched flag. The rarer the badge, the fuller: the top of a family has two layers of its shape (recessed under glass, or a ring around a core) plus an echo of the gem.
+The glyphs are drawn from the family's own outline, never from another family: a flower with 3, 4, 5 then 6 petals (`petals`); the wavy seal gem itself, smaller, and rings of it; smaller U shields; clouds with 3 to 5 fluffs (`puff`) and the cushion itself (rings and slabs; glyphs can turn with `rot`); the pennant's notched flag. The rarer the badge, the fuller: the top of a family has two layers of its shape (recessed under glass, or a ring around a core) plus an echo of the gem.
+
+D_2 to D_5, E_1 to E_5, F_1 to F_3, G_1 to G_6 and G_9 to G_12 follow your Figma frames (Hypernova Internal), matched layer by layer with the engine's own shapes (all within 0.35 px): sizes and tops as drawn, centred on the axis. G_2 Touch Grass and G_3 GM are your rounded rhombuses (`rhombus`, r 8), the one exception to the family-shape rule.
 
 ## Colours
 
@@ -123,3 +126,6 @@ The Figma plugin in `figma-plugin/` pastes badges as native layers: one vector p
 - The catalogue lists 8 payout steps (C) and 6 volume steps (B); Figma has 5 and 7 (with a $250M alternate).
 - The one Figma badge off the rarity rule is B_4 $50M: rare in the catalogue, drawn silver.
 - G_12 shows four edge lines (`edgeBars`) instead of dots, so its rarity shows by colour only.
+- From the Figma frames: G_2 and G_3 sat 0.5 px left of the axis (centred here). G_11's glass sits 1 px high and E_4's icon 0.8 px high, kept as drawn. Dot pairs that were 1 to 2 px off symmetric are mirrored. Bevels that were scaled to 0.5 or 1.3 px (D_5 echo, E_4) or lost their clip (F_2, F_3 recess) stay 1 px outside.
+- F_2 and F_3 have the gem 2 px higher than F_1 (as in Figma). E_1 is now glass, the same icon as E_2 in blue.
+- D_1, G_7 and G_8 have no Figma redo yet; they stay marked Open.

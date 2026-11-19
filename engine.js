@@ -648,6 +648,8 @@ export function dotPositions(spec) {
   spec = resolveDerived(spec);
   const n = spec.level | 0;
   if (!n || !spec.plate) return [];
+  // dots placed by hand in Figma (top-left of each 2 x 2), used while their count matches the level
+  if (Array.isArray(spec.dots) && spec.dots.length === n) return spec.dots.map(([x, y]) => [x, y]);
   const inset = spec.dotInset ?? DOT_INSET, clear = spec.dotClear ?? DOT_CLEAR;
   const T = dotTrack(spec.plate, spec.gem, inset, clear);
   if (!T || T.half <= 0) return [];
@@ -728,6 +730,7 @@ export const LIGHTS = {
   center: { label: 'Center', from: [0.719, 0.276], to: [0.253, 0.83], lift: 0 },
   high: { label: 'High', from: [0.755, 0.01], to: [0.215, 0.557], lift: 0.27 },
 };
+export const lightOf = (l) => (l && typeof l === 'object' ? { ...LIGHTS.center, ...l } : LIGHTS[l] || LIGHTS.center);
 
 // Bezel facet shading measured from the Figma K_5 gold setting, as [saturation, lightness] at the
 // two ends of each facet's gradient. The hue comes from the palette and saturation scales with it,
@@ -801,12 +804,14 @@ export function renderBadge(spec, opts = {}) {
   if (bg && bg !== 'none') body.push(`<rect width="${SIZE}" height="${SIZE}" fill="${bg}" data-l="bg"/>`);
 
   // bevel stroke: 1px, black (top) to white (bottom), overlay. inside or outside the shape.
-  const bevel = (d, box, where = 'inside', lift = 0, a = '') => {
+  // span: where the black-to-white bevel gradient starts and ends, as fractions of the box height;
+  // w: visible width in px (the stroke is twice as wide, half of it clipped away)
+  const bevel = (d, box, where = 'inside', lift = 0, a = '', span = [-lift, 1 - lift], w = 1) => {
     const cid = nid('c'), gidd = nid('g');
-    defs.push(linGrad(gidd, box, [0.5, -lift], [0.5, 1 - lift], bevelStops));
+    defs.push(linGrad(gidd, box, [0.5, span[0]], [0.5, span[1]], bevelStops));
     if (where === 'inside') defs.push(`<clipPath id="${cid}"><path d="${d}"/></clipPath>`);
     else defs.push(`<clipPath id="${cid}"><path d="M-10 -10H${SIZE + 10}V${SIZE + 10}H-10Z${d}" clip-rule="evenodd" fill-rule="evenodd"/></clipPath>`);
-    body.push(`<path d="${d}" fill="none" stroke="url(#${gidd})" stroke-width="2" clip-path="url(#${cid})" style="mix-blend-mode:overlay"${a}/>`);
+    body.push(`<path d="${d}" fill="none" stroke="url(#${gidd})" stroke-width="${2 * w}" clip-path="url(#${cid})" style="mix-blend-mode:overlay"${a}/>`);
   };
 
   // ---- plate
@@ -908,7 +913,8 @@ export function renderBadge(spec, opts = {}) {
       const { d, box } = glyphGeometry(g, x);
       const style = g.style || 'glass';
       const A = layer(g.text != null ? 'Number' : g.of ? 'Echo' : { glass: 'Glass', 'glass-tint': 'Glass', recess: 'Recess', solid: 'Solid' }[style] || 'Glyph');
-      const light = LIGHTS[g.light] || LIGHTS.center;
+      // light: a preset name, or the glyph's own handles from Figma ({ from, to, lift, bevel: [top, bottom] })
+      const light = lightOf(g.light);
       if (style === 'glass' || style === 'glass-tint') {
         const lg = nid('q');
         let stops = GLASS;
@@ -927,7 +933,8 @@ export function renderBadge(spec, opts = {}) {
       } else if (style === 'solid') {
         body.push(`<path d="${d}" fill="${g.color || '#FFFFFF'}" fill-opacity="${g.alpha ?? 1}"${blendStyle(g.blend)}${A}/>`);
       }
-      if (g.bevel !== false) bevel(d, box, 'outside', light.lift, A);
+      // bevel: outside by default; 'inside' keeps the edge within the glyph (Figma D_3); bevelW: width in px (G_5: 2)
+      if (g.bevel !== false) bevel(d, box, g.bevel === 'inside' ? 'inside' : 'outside', light.lift, A, light.bevel, g.bevelW ?? 1);
     }
   }
 

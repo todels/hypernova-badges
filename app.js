@@ -244,19 +244,25 @@ function partBlock(title, prefix, el, extra = '') {
     ${paramFields(prefix, el.shape)}
   </div>`;
 }
+// a glyph lit with its own Figma handles shows as Custom until a preset is picked
+function lightSel(p, g, o = {}) {
+  const opts = Object.entries(LIGHTS).map(([k, v]) => [k, v.label]);
+  const custom = !!g.light && typeof g.light === 'object';
+  return sel('Light', `${p}.light`, custom ? [['custom', 'Custom (Figma)'], ...opts] : opts, custom ? { ...o, value: 'custom' } : o);
+}
 function glyphCard(g, i) {
   const p = `glyphs.${i}`;
   const st = g.style || 'glass';
   if (g.parts) {
     return `<div class="glyph"><div class="gh">${i + 1}. Compound (${g.parts.length} parts)<span class="spacer"></span>${gButtons(i)}</div>
-      <div class="row r2">${sel('Style', `${p}.style`, STYLES)}${sel('Light', `${p}.light`, Object.entries(LIGHTS).map(([k, v]) => [k, v.label]))}</div>
+      <div class="row r2">${sel('Style', `${p}.style`, STYLES)}${lightSel(p, g)}</div>
       <div class="note">Compound glyphs share one glass gradient and one bevel. Edit their parts in the JSON panel.</div></div>`;
   }
   if (g.text != null) {
     return `<div class="glyph"><div class="gh">${i + 1}. Number<span class="spacer"></span>${gButtons(i)}</div>
       <div class="row r3"><label class="f"><span>Text (digits)</span><input type="text" data-path="${p}.text" value="${esc(g.text)}"></label>${sel('Font', `${p}.font`, [['wide', 'PolySans Bulky Wide'], ['bulky', 'PolySans Bulky']], { rebuild: false })}${sel('Style', `${p}.style`, STYLES.filter(([k]) => k !== 'inlay'))}</div>
       <div class="row">${num('Cap height', `${p}.h`)}${num('Top', `${p}.y`)}${num('Tracking', `${p}.track`, { ph: -24 })}${num('Opacity', `${p}.alpha`, { step: 0.01, ph: st === 'recess' ? 0.49 : 1 })}</div>
-      <div class="row r2">${sel('Light', `${p}.light`, Object.entries(LIGHTS).map(([k, v]) => [k, v.label]), { rebuild: false })}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div></div>`;
+      <div class="row r2">${lightSel(p, g, { rebuild: false })}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div></div>`;
   }
   let styleFields = '';
   if (st === 'recess') styleFields = `<div class="row r2">${num('Opacity', `${p}.alpha`, { step: 0.01, ph: 0.49 })}${sel('Blend', `${p}.blend`, BLENDS, { rebuild: false })}</div>`;
@@ -267,7 +273,7 @@ function glyphCard(g, i) {
     <div class="gh">${i + 1}. ${esc(allShapes()[g.shape]?.label || g.shape)}<span class="spacer"></span>${gButtons(i)}</div>
     <div class="row r2">${sel('Shape', `${p}.shape`, shapeOptions(), { act: 'shape' })}${sel('Style', `${p}.style`, STYLES)}</div>
     <div class="row">${num('W', `${p}.w`)}${num('H', `${p}.h`)}${num('Top', `${p}.y`)}${num('Pair x', `${p}.x`, { ph: 'none' })}</div>
-    ${st !== 'inlay' ? `<div class="row r2">${sel('Light', `${p}.light`, Object.entries(LIGHTS).map(([k, v]) => [k, v.label]), { rebuild: false })}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div>` : ''}
+    ${st !== 'inlay' ? `<div class="row r2">${lightSel(p, g, { rebuild: false })}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div>` : ''}
     ${styleFields}
     ${paramFields(p, g.shape)}
   </div>`;
@@ -765,7 +771,7 @@ function renderRules() {
 
     <h2>Families</h2>
     <p>The badge catalogue in Figma has families A to K. A, B, C, H, I and K are drawn in Figma and stay as they are. D, E, F, G and J each get one of the seven base shapes drawn in Figma, and levels get the brilliant. No two families share a shape; the ${SPARE_SHAPES.map((k) => FAMILIES[k].label.toLowerCase()).join(', ')} is spare.</p>
-    <p>The glyphs inside are drawn from the family's own outline, never from another family: a flower with 3, 4, 5 then 6 petals; the wavy seal itself, smaller, and rings of it; smaller shields; clouds with 3 to 5 fluffs and the cushion itself as rings, stones, a sprout; the pennant's notched flag. The rarer the badge, the fuller it gets: the top of each family has two layers of its shape (a recessed one under a glass one, or a ring around a core) and an echo of the gem.</p>
+    <p>The glyphs inside are drawn from the family's own outline, never from another family: a flower with 3, 4, 5 then 6 petals; the wavy seal itself, smaller, and rings of it; smaller shields; clouds with 3 to 5 fluffs and the cushion itself as rings and slabs (G_2 and G_3 use your rounded rhombuses from Figma); the pennant's notched flag. The rarer the badge, the fuller it gets: the top of each family has two layers of its shape (a recessed one under a glass one, or a ring around a core) and an echo of the gem.</p>
     <div class="anat">${Object.entries(FAMILY_SHAPES).map(([k, shape]) => { const top = k === 'L' ? levelBadge(200) : NEW_BADGES.filter((b) => b.id[0] === k).sort((a, b) => RARITY_DOTS[b.catalogue] - RARITY_DOTS[a.catalogue] || b.level - a.level)[0]; return `<figure><div>${renderBadge(top, { scale: 0.62 })}</div>${k === 'L' ? 'L. Levels' : esc(top.series)}<br><span class="muted">${esc(FAMILIES[shape].label)}</span></figure>`; }).join('')}</div>
 
     <h2>Colours</h2>

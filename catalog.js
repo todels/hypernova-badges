@@ -195,8 +195,6 @@ export const RARITY_DOTS = { common: 2, rare: 3, epic: 4, legendary: 5 };
 const cy = (c, g) => ({ ...g, y: Math.round(c - g.h / 2) });
 const ECHO = { of: 'gem', d: -8, style: 'recess', alpha: 0.21 };
 const ringOf = (outer, inner, style = 'glass') => ({ parts: [outer, inner], evenodd: true, style, shape: outer.shape });
-// a ring between two offsets of the gem (d px in from its outline), parallel to the gem and its echo
-const gemRing = (dOut, dIn, style = 'glass', more = {}) => ({ parts: [{ of: 'gem', d: dOut }, { of: 'gem', d: dIn }], evenodd: true, style, shape: 'derived', ...more });
 const sz = (shape, w, h, c, params, style = 'glass', more = {}) => cy(c, { shape, w, h, style, ...(params ? { params } : {}), ...more });
 
 // flower: petals around a core, 'petal' = one on the axis, 'gap' = a notch on the axis (like the base)
@@ -209,14 +207,23 @@ const bloom = (n, w, c, style = 'glass', top = 'petal', more = {}) => {
 const rosette = (n, w, c, style = 'glass', more = {}) =>
   sz('petals', w, Math.round(w * 1.12), c, { n, top: 'petal', ring: 0.84, size: 0.2, core: 0.9, k: 0.1 }, style, more);
 // U shield: the base gem's proportions at any width
-const ush = (w, c, style = 'glass', more = {}) => sz('shield', w, Math.round((w * 72) / 62), c,
-  { corner: (11.2 * w) / 62, knee: 0.532, r: (36 * w) / 62, tip: (8 * w) / 62 }, style, more);
+const ushP = (w) => ({ corner: (11.2 * w) / 62, knee: 0.532, r: (36 * w) / 62, tip: (8 * w) / 62 });
+const ush = (w, c, style = 'glass', more = {}) => sz('shield', w, Math.round((w * 72) / 62), c, ushP(w), style, more);
 // seal: the wavy seal gem itself, smaller (same outline, same waves)
 const seal = (w, c, style = 'glass', more = {}) => sz('wavyGem', w, Math.round((w * 75.094) / 66.607), c, null, style, more);
 // cushion: the cushion gem itself, any size (stretched for slabs and blades)
 const cush = (w, h, c, style = 'glass', more = {}) => sz('cushion', w, h, c, null, style, more);
 // cloud: n fluffs on a flat base
 const puff = (n, w, h, c, style = 'glass', more = {}) => sz('puff', w, h, c, { n, k: 0.1 }, style, more);
+// at: a shape in an exact box (w x h, top y), centred on the axis: glyphs you placed by hand in Figma
+const at = (shape, w, h, y, params, style = 'glass', more = {}) => ({ shape, w, h, y, style, ...(params ? { params } : {}), ...more });
+// dotsAt: dots where you placed them in Figma, given as the left and centre dots (top-left of each
+// 2 x 2); each left dot gets its mirror on the right, so a pair is always symmetric
+const dotsAt = (...pts) => pts.flatMap(([x, y]) => (x === 74 ? [[x, y]] : [[x, y], [148 - x, y]]));
+// F_2 and F_3: the gem sits 2 px higher than centred, as in Figma
+const F_GEM_UP = { ...FAMILIES.ushield.gem, y: 37 };
+// six petals with a notch on the axis, the flower gem's own rhythm (D echoes)
+const PETALS6 = { n: 6, top: 'gap', ring: 0.6, size: 0.33, core: 0.46, k: 0.05 };
 // pennant: the base outline, its notch cut deeper so it still reads small
 const flag = (w, c, style = 'glass', more = {}) => sz('banner', w, Math.round(w * 1.08), c, { notch: 0.26, r: w / 8 }, style, more);
 
@@ -224,38 +231,43 @@ const flag = (w, c, style = 'glass', more = {}) => sz('banner', w, Math.round(w 
 const NEW_FAMILIES = [
   ['D', 'D. Trading-days ladder', 'counts trading days', 'ladder', [
     ['Days 5', 'common', 'days i', [bloom(3, 30, 74, 'recess', 'gap', { alpha: 0.49 })]],
-    ['Days 25', 'common', 'days ii', [bloom(4, 32, 75, 'glass', 'gap')]],
-    ['Days 100', 'rare', 'days iii', [ECHO, bloom(5, 34, 75)]],
-    ['Days 250', 'epic', 'days iv', [ECHO, bloom(6, 36, 75, 'glass', 'gap'), sz('oval', 8, 8, 75, null, 'recess', { alpha: 0.49 })]],
-    ['Veteran 500', 'epic', 'days v', [ECHO, bloom(6, 46, 75, 'recess', 'gap', { alpha: 0.49 }), bloom(6, 28, 75, 'glass', 'petal')],
-      { ornaments: { topBar: true } }],
+    ['Days 25', 'common', 'days ii', [bloom(4, 32, 75, 'glass', 'gap')], { dots: dotsAt([34, 74], [74, 107]) }],
+    ['Days 100', 'rare', 'days iii', [ECHO, at('petals', 32, 30, 60, { n: 6, top: 'gap', ring: 0.8, size: 0.25, core: 0.78, k: 0.13 }, 'glass',
+      { light: { to: [0.288, 0.859] }, bevel: 'inside' })], { dots: dotsAt([51, 41], [51, 109]) }],
+    ['Days 250', 'epic', 'days iv', [at('petals', 58, 54, 48, PETALS6, 'recess', { alpha: 0.21, bevel: 'inside' }), bloom(6, 36, 75, 'glass', 'gap'),
+      sz('oval', 8, 8, 75, null, 'recess', { alpha: 0.49 })], { dots: dotsAt([34, 74], [51, 41], [74, 106]) }],
+    ['Veteran 500', 'epic', 'days v', [at('petals', 62, 58, 46, PETALS6, 'recess', { alpha: 0.21 }), bloom(6, 32, 75, 'glass', 'petal')],
+      { dots: dotsAt([34, 74], [55, 40], [55, 110]) }],
   ]],
   ['E', 'E. Nova milestones', 'score thresholds, first reach', 'ladder', [
-    ['Solid Citizen', 'rare', 'nova 55+', [seal(34, 75, 'recess', { alpha: 0.49 })]],
-    ['Strong Hand', 'epic', 'nova 70+', [seal(34, 75)]],
-    ['Elite', 'legendary', 'nova 85+', [ECHO, seal(38, 75), seal(16, 75, 'recess', { alpha: 0.49 })]],
-    ['The Maxer', 'legendary', 'nova 95+', [ECHO, gemRing(-11, -17), seal(18, 75)],
-      { ornaments: { topBar: true } }],
-    ['Comeback', 'rare', 'nova comeback', [gemRing(-13, -19, 'recess'), seal(14, 75)], { side: true }],
+    ['Solid Citizen', 'rare', 'nova 55+', [seal(34, 75)], { dots: dotsAt([34, 74]) }],
+    ['Strong Hand', 'epic', 'nova 70+', [seal(34, 75)], { dots: dotsAt([39, 49], [74, 117]) }],
+    ['Elite', 'legendary', 'nova 85+', [ECHO, seal(38, 75), seal(16, 75, 'recess', { alpha: 0.49 })], { dots: dotsAt([34, 74], [74, 31], [74, 118]) }],
+    ['The Maxer', 'legendary', 'nova 95+', [ringOf(at('wavyGem', 52.24, 58.77, 45.5), at('wavyGem', 36.56, 41.79, 53.34), 'recess'),
+      at('wavyGem', 18.28, 20.89, 63.79)], { ornaments: { topBar: true }, dots: dotsAt([34, 74], [50, 37], [74, 118]) }],
+    ['Comeback', 'rare', 'nova comeback', [ringOf(at('wavyGem', 40, 45, 53), at('wavyGem', 28, 32, 59), 'recess'), seal(14, 75)], { side: true, dots: dotsAt([39, 49], [74, 119]) }],
   ]],
   ['F', 'F. Identity / OG', 'time-gated, never retrofitted', 'set', [
-    ["Founder's Funded", 'rare', 'launch month', [ush(36, 73)]],
-    ["Founder's Funded", 'legendary', 'first 100', [ush(40, 74, 'recess', { alpha: 0.49 }), ush(20, 72)]],
-    ['OG', 'legendary', 'closed alpha', [ECHO, ush(34, 73, 'recess', { alpha: 0.49 }), ush(16, 72, 'glass', { x: 9 })],
-      { ornaments: { topBar: true } }],
+    ["Founder's Funded", 'rare', 'launch month', [ush(36, 73)], { dots: dotsAt([40, 35], [74, 117]) }],
+    ["Founder's Funded", 'legendary', 'first 100', [at('shield', 40, 46, 49, ushP(40), 'recess', { alpha: 0.49 }), at('shield', 20, 23, 59, ushP(20))],
+      { gem: F_GEM_UP, dots: dotsAt([39, 35], [39, 78], [74, 119]) }],
+    ['OG', 'legendary', 'closed alpha', [at('shield', 52.24, 60.07, 41.66, ushP(52.24), 'recess', { alpha: 0.49 }), at('shield', 36, 42, 50, ushP(36))],
+      { ornaments: { topBar: true }, gem: F_GEM_UP, dots: dotsAt([47, 29], [39, 78], [74, 119]) }],
   ]],
   ['G', 'G. Quirky & behavioural', 'hidden until earned', 'set', [
     ['Second Windz', 'common', 'behavioural', [puff(3, 40, 25, 69), sz('oval', 28, 3, 87, null, 'recess', { alpha: 0.49 }), sz('oval', 16, 3, 93, null, 'recess', { alpha: 0.49 })]],
-    ['Touch Grass', 'common', 'behavioural', [cush(44, 10, 91, 'recess', { alpha: 0.49 }), cush(6, 22, 76), cush(16, 9, 63, 'glass', { x: 9, rot: -32 })]],
-    ['GM', 'common', 'behavioural', [sz('oval', 22, 22, 68, null, 'recess', { alpha: 0.49 }), puff(3, 46, 28, 82)]],
+    ['Touch Grass', 'common', 'behavioural', [at('rhombus', 32.47, 46, 53, { r: 8 }, 'recess', { alpha: 0.49, light: { bevel: [-0.096, 0.677] } })]],
+    ['GM', 'common', 'behavioural', [at('rhombus', 47.71, 52, 50, { r: 8 }, 'recess', { alpha: 0.49, light: { bevel: [-0.096, 0.677] } }),
+      at('rhombus', 20.7, 32, 60, { r: 8 }, 'glass', { light: { from: [0.766, 0.276], to: [0.035, 0.712] } })]],
     ['Ser', 'common', 'behavioural', [ringOf(cush(40, 40, 75), cush(26, 26, 75))]],
-    ['Sold the Bottom', 'common', 'commiseration', [ringOf(cush(42, 42, 75), cush(30, 30, 75), 'recess'), cush(16, 12, 75)]],
+    ['Sold the Bottom', 'common', 'commiseration', [{ ...ringOf(cush(54, 54, 75), at('cushion', 38.57, 38.57, 55.71), 'recess'), bevelW: 2 },
+      cush(20, 20, 75, 'glass', { light: { to: [0.141, 0.663] }, bevelW: 2 })]],
     ['Clean Slate', 'rare', 'behavioural', [ringOf(puff(3, 48, 34, 75), puff(3, 32, 21, 76))]],
     ['Comeback Kid', 'rare', 'behavioural', [puff(3, 30, 20, 88, 'recess', { alpha: 0.49 }), puff(3, 44, 29, 68)]],
     ['Lazarus', 'rare', 'behavioural', [puff(3, 46, 30, 84, 'recess', { alpha: 0.49 }), puff(3, 26, 17, 64)]],
     ['Know When to Stop', 'rare', 'behavioural', [puff(3, 44, 30, 67), sz('oval', 38, 4, 92, null, 'recess', { alpha: 0.49 })]],
     ['Bug Hunter', 'rare', 'per bug fixed', [puff(4, 48, 32, 75), sz('oval', 5, 5, 76, null, 'recess', { alpha: 0.49, x: 7 })]],
-    ['Zen Master', 'epic', 'behavioural', [ECHO, cush(38, 14, 88), cush(28, 12, 73), cush(18, 10, 60)]],
+    ['Zen Master', 'epic', 'behavioural', [ECHO, at('cushion', 38, 38, 55, null, 'glass', { light: { to: [0.178, 0.363] } })]],
     ['Survived [Event]', 'legendary', 'black swan', [ECHO, cush(38, 38, 75), cush(16, 16, 75, 'recess', { alpha: 0.49 })],
       { level: 0, ornaments: { edgeBars: true } }],
   ]],
@@ -342,16 +354,8 @@ export const ALL_BADGES = [...FIGMA_BADGES, ...NEW_BADGES].sort((a, b) => ORDER.
 const SENT = 'sent to you to redo in Figma';
 export const OPEN = {
   I_2: SENT,
-  D_1: SENT, D_3: SENT, D_4: SENT, D_5: SENT,
-  E_4: 'flagged: misaligned (ring redrawn parallel to the gem, not approved)',
-  E_5: 'flagged: misaligned (ring redrawn parallel to the gem, seal centred, not approved)',
-  F_2: SENT,
-  F_3: 'flagged: too many shapes (was F_1)',
-  G_2: `flagged: make a new Touch Grass (was G_7); ${SENT}`,
-  G_3: `${SENT} (was G_8)`,
-  G_5: `flagged: alignment (inner slab centred, not approved); ${SENT}`,
-  G_7: SENT, G_8: SENT,
-  G_11: `flagged: bugged (was G_2); ${SENT}`,
+  D_1: SENT,
+  G_7: `${SENT}; new ideas pending`, G_8: `${SENT}; new ideas pending`,
   J_3: 'flagged: inner icon misaligned',
   LV_999: SENT,
 };
