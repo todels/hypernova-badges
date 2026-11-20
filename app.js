@@ -767,7 +767,7 @@ function renderRules() {
       <li><b>Gem</b>: a 3 stop linear gradient (dark, light at 41%, dark) plus the same inside bevel.</li>
       <li><b>Left facet</b>: the left half of the gem gets the palette's shading recipe and its own bevel. That bevel is what draws the centre line.</li>
       <li><b>Glyphs</b>: glass (white gradient that goes clear in the middle) or recess (black at 21 or 49%). Glyphs get a 1 px bevel on the outside.</li>
-      <li><b>Glyph facet</b>: the gem's split carries on through every glyph (Figma G_2). Recess glyphs get a copy of their left half in black at the same opacity, with a 1 px seam (the bevel) just right of the centre line. Glass glyphs get the same darker left half (black 20%) on silver, gold and bronze, and a lighter right half (white 50% Overlay) on blue, purple and ruby. Per glyph: Facet in the Editor.</li>
+      <li><b>Glyph facet</b>: the gem's split carries on through every glyph (Figma G_2). Recess glyphs get a copy of their left half in black at the same opacity, with a 1 px seam (the bevel) on the same pixel column as the gem's split line, so the seams line up. Glass glyphs get the same darker left half (black 20%) on silver, gold and bronze, and a lighter right half (white 50% Overlay) on blue, purple and ruby. Per glyph: Facet in the Editor.</li>
       <li><b>Dots and ornaments</b>: 2 x 2 white level dots, optional top bar, bottom chevron line and side arrows.</li>
     </ol>
     <div class="callout"><b>The bevel</b> is one rule used everywhere: a 1 px line, black at the top to white at the bottom, in Overlay. It sits inside plates and gems and outside glyphs.</div>

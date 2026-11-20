@@ -995,9 +995,10 @@ export function renderBadge(spec, opts = {}) {
         const F = layer(fc.side === 'left' ? 'Left facet' : 'Right light');
         body.push(`<path d="${hd.d}" fill="${fc.color}" fill-opacity="${fc.alpha}"${g.evenodd ? ' fill-rule="evenodd"' : ''}${blendStyle(fc.blend)}${F}/>`);
         if (fc.bevel === 'axis' && g.bevel !== false) {
-          // the seam: the half's outside bevel along the axis, as its own strip (w px on the far side of
-          // the axis, the bevel gradient, overlay), so it pastes into Figma as a plain filled layer
-          const w = g.bevelW ?? 1, x0 = fc.side === 'left' ? CX : CX - w, sg = nid('g');
+          // the seam: a bevel strip along the axis (the bevel gradient, overlay), drawn as its own strip so it
+          // pastes into Figma as a plain filled layer. It sits inside the half, on the same column as the
+          // gem's own split line (the gem half's inside bevel), so the two read as one straight line
+          const w = g.bevelW ?? 1, x0 = fc.side === 'left' ? CX - w : CX, sg = nid('g');
           defs.push(linGrad(sg, box, [0.5, (light.bevel || [-light.lift, 1 - light.lift])[0]], [0.5, (light.bevel || [-light.lift, 1 - light.lift])[1]], bevelStops));
           const sd = hd.axisRuns.map(([a, b]) => `M${f(x0)} ${f(a)}H${f(x0 + w)}V${f(b)}H${f(x0)}Z`).join('');
           if (sd) body.push(`<path d="${sd}" fill="url(#${sg})" style="mix-blend-mode:overlay"${layer('Facet seam')}/>`);
