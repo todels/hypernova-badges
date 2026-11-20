@@ -876,6 +876,8 @@ export function renderBadge(spec, opts = {}) {
     const m = [-0.24603 * pbox.w, 0.25 * pbox.h, -0.73406 * pbox.w, -0.40635 * pbox.h, pbox.x + pbox.w / 2, pbox.y + pbox.h / 2].map(f);
     defs.push(`<radialGradient id="${rg}" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(${m.join(' ')})"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>`);
     const tint = pl.tint || pal.plate, A = layer('Plate');
+    // plateBase: an opaque fill under the tint, so the plate looks the same on any background (tags)
+    if (opts.plateBase) body.push(`<path d="${pp.full}" fill="${opts.plateBase}"${A}/>`);
     body.push(`<path d="${pp.full}" fill="${tint.color}" fill-opacity="${tint.alpha}"${A}/>`);
     body.push(`<path d="${pp.full}" fill="url(#${rg})" fill-opacity="0.2"${A}/>`);
     bevel(pp.full, pbox, 'inside', 0, A);
@@ -1433,3 +1435,135 @@ export function resolveDerived(spec) {
 export const CUSTOM_SHAPES = {};
 export function registerShape(name, def) { CUSTOM_SHAPES[name] = def; }
 export { parseHalf };
+
+/* ------------------------------------------------------------------ */
+/* Tags                                                                 */
+/* ------------------------------------------------------------------ */
+// A tag is the small pill the app shows next to a name: the badge itself, scaled down, and its name in
+// caps (Figma HyperNova file, node 1010:75704). The Figma tag is an auto layout frame, in px at 1x:
+//   frame   22 px tall, 1 px border black 48%, radius 3
+//   pill    20 px tall, radius 2, a 0.387 px light edge, a radial metal sweep from the top right corner
+//   badge   in a 20 x 20 slot on the left, drawn 28 px across and centred on the slot, so it spills
+//           4 px over the pill (the plate gets an opaque #1D1D1D base so the pill does not show through)
+//   label   gap 2, 4 px padding each side, then 2 px to the edge; PolySans Median 10 px in caps,
+//           #D6D6D6 to white top to bottom, shadow 0 0.5 0.5 black 16%, centred on the cap height
+// So the pill is 32 px plus the label width (rounded up), the frame 2 px more.
+export const TAG = { h: 22, pill: 20, slot: 20, icon: 28, gap: 2, pad: 4, padR: 2, size: 10, cap: 7.04, edge: 0.387, rim: 0.48, plate: '#1D1D1D' };
+// PolySans Median is weight 600 in the PolySans family
+export const TAG_FONT = `'PolySans Trial', 'PolySans', 'Inter', 'Helvetica Neue', Arial, sans-serif`;
+
+// Pill fills as built in Figma: radial stops, the gradient's handles in the pill's own 0..1 box
+// (matrix a b c d e f, radius 10), and a flat layer on top (silver #292929 74%, purple black 24%).
+// Bronze is derived from gold and ruby from purple, with the same HSL shift that takes one badge
+// palette to the other (never more saturated than the Figma pill), so a tag always matches its badge.
+const SWEEP = [-0.100472, 0.1, -0.020325, -0.324035, 1.004717, 0];
+export const TAG_FILLS = {
+  silver: { m: SWEEP, over: ['#292929', 0.74], stops: [[0, '#4A4A4A'], [0.22201, '#656565'], [0.44402, '#818181'], [0.58302, '#696969'], [0.72201, '#515151'], [0.86101, '#393939'], [1, '#222222']] },
+  blue: { m: SWEEP, stops: [[0, '#0C4293'], [0.22201, '#2063C9'], [0.44402, '#3585FE'], [0.58302, '#2869CA'], [0.72201, '#1B4C97'], [0.86101, '#0D3063'], [0.9305, '#07214A'], [1, '#001330']] },
+  gold: { m: [-0.1, 0.0525, -0.0086815, -0.31995, 1, 0], stops: [[0, '#B97547'], [0.069712, '#C08A24'], [0.10457, '#C39412'], [0.13942, '#C79F00'], [0.56971, '#A27C0E'], [1, '#7E591D']] },
+  purple: { m: [-0.101232, 0.1, -0.015886, -0.32338, 1.011143, 0], over: ['#000000', 0.24], stops: [[0, '#3B1C60'], [0.11101, '#502084'], [0.22201, '#6425A9'], [0.44402, '#8D2FF2'], [0.72201, '#803CCB'], [1, '#7348A5']] },
+};
+function shiftStops(stops, from, to) {
+  const [h0, s0, l0] = hexToHsl(from), [h1, s1, l1] = hexToHsl(to);
+  return stops.map(([o, c]) => {
+    const [h, s, l] = hexToHsl(c);
+    return [o, hsl((h + h1 - h0 + 720) % 360, (s * Math.min(1, s1 / s0)), Math.max(0, Math.min(100, l + l1 - l0)))];
+  });
+}
+const deriveTag = (base, pal) => ({ ...TAG_FILLS[base], stops: shiftStops(TAG_FILLS[base].stops, PALETTES[base].gem.stops[0][1], pal.gem.stops[0][1]) });
+TAG_FILLS.bronze = deriveTag('gold', PALETTES.bronze);
+TAG_FILLS.ruby = deriveTag('purple', PALETTES.ruby);
+export const tagFill = (spec) => (spec.customColor ? deriveTag('purple', paletteFromColor(spec.customColor)) : TAG_FILLS[spec.rarity] || TAG_FILLS.silver);
+
+// PolySans Median advance widths (1000 units per em), for laying out tags where no browser can measure
+// text. Characters the font lacks get 600 ('$' measured 576 in Figma's fallback).
+const TAG_ADV = { ' ': 272, ',': 224, '.': 224, '/': 440, ':': 224, '$': 576, 0: 656, 1: 400, 2: 640, 3: 656, 4: 688, 5: 656, 6: 656, 7: 592, 8: 672, 9: 656, A: 688, B: 688, C: 720, D: 704, E: 592, F: 576, G: 752, H: 704, I: 248, J: 528, K: 640, L: 560, M: 912, N: 720, O: 752, P: 640, Q: 752, R: 672, S: 624, T: 608, U: 688, V: 672, W: 976, X: 656, Y: 640, Z: 640 };
+let TAG_CTX = null;
+export function tagTextWidth(text) {
+  if (typeof document !== 'undefined') {
+    TAG_CTX ||= document.createElement('canvas').getContext('2d');
+    TAG_CTX.font = `600 ${TAG.size}px ${TAG_FONT}`;
+    return TAG_CTX.measureText(text).width;
+  }
+  return ([...text].reduce((s, ch) => s + (TAG_ADV[ch] ?? 600), 0) * TAG.size) / 1000;
+}
+// the label: the badge name in caps, without an alternate's "alt" suffix (B_6 "$250M alt" -> $250M)
+export const tagLabel = (spec, label) => String(label ?? spec.tagLabel ?? spec.name ?? '').replace(/\s+\(?alt\)?$/i, '').toUpperCase();
+
+// what a badge actually covers in its 150 x 150 frame: plate, gem, side tips and dots
+export function badgeBounds(spec) {
+  spec = resolveDerived(spec);
+  const boxes = [boxOf(spec.plate)];
+  if (spec.gem) boxes.push(boxOf(spec.gem));
+  const sa = spec.ornaments && spec.ornaments.sideArrows;
+  if (sa) {
+    const o = sa === true ? {} : sa, w = o.w ?? 80, show = o.show ?? (5.36 * w) / 80, pb = boxOf(spec.plate);
+    boxes.push({ x: CX - w / 2, y: pb.y + pb.h / 2 - show, w, h: 2 * show });
+  }
+  for (const [x, y] of dotPositions(spec)) boxes.push({ x, y, w: 2, h: 2 });
+  const x0 = Math.min(...boxes.map((b) => b.x)), y0 = Math.min(...boxes.map((b) => b.y));
+  const x1 = Math.max(...boxes.map((b) => b.x + b.w)), y1 = Math.max(...boxes.map((b) => b.y + b.h));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+// frame size of a tag in px at 1x (the badge spills 4 px past it)
+export function tagSize(spec, opts = {}) {
+  const tw = Math.ceil((opts.textWidth ?? tagTextWidth(tagLabel(spec, opts.label))) - 1e-6);
+  return { w: TAG.slot + TAG.gap + 2 * TAG.pad + tw + TAG.padR + 2, h: TAG.h };
+}
+
+// renderTag(spec, opts) -> SVG string. opts.label: other text than the badge name; opts.textWidth: the
+// label width in px if it is known; opts.bleed: px of room around the frame so the badge's spill is
+// not cut off in a standalone file (inline the SVG is overflow: visible); opts.scale; opts.background.
+export function renderTag(spec, opts = {}) {
+  const id = 'ht' + (++UID).toString(36);
+  const T = TAG, text = tagLabel(spec, opts.label);
+  const tw = Math.ceil((opts.textWidth ?? tagTextWidth(text)) - 1e-6);
+  const W = T.slot + T.gap + 2 * T.pad + tw + T.padR, H = T.pill, FW = W + 2, FH = T.h;
+  const fill = tagFill(spec);
+  const defs = [], body = [];
+  let LN = 0;
+  const layer = (name) => ` data-n="${++LN}" data-l="${name}"`;
+  // rounded rect with cubic corners (no arcs: the Figma plugin reads M L H V C Q Z only)
+  const rr = (x, y, w, h, r) => {
+    const k = r * 0.5523, X = x + w, Y = y + h;
+    return `M${f(x + r)} ${f(y)}H${f(X - r)}C${f(X - r + k)} ${f(y)} ${f(X)} ${f(y + r - k)} ${f(X)} ${f(y + r)}V${f(Y - r)}C${f(X)} ${f(Y - r + k)} ${f(X - r + k)} ${f(Y)} ${f(X - r)} ${f(Y)}H${f(x + r)}C${f(x + r - k)} ${f(Y)} ${f(x)} ${f(Y - r + k)} ${f(x)} ${f(Y - r)}V${f(y + r)}C${f(x)} ${f(y + r - k)} ${f(x + r - k)} ${f(y)} ${f(x + r)} ${f(y)}Z`;
+  };
+  const pill = rr(1, 1, W, H, 2);
+  const bg = opts.background ?? 'none';
+  const b = opts.bleed || 0;
+  if (bg && bg !== 'none') body.push(`<rect x="${-b}" y="${-b}" width="${FW + 2 * b}" height="${FH + 2 * b}" fill="${bg}" data-l="bg"/>`);
+
+  // frame border: the ring between the frame and the pill
+  body.push(`<path d="${rr(0, 0, FW, FH, 3)}${pill}" fill="#000000" fill-opacity="${T.rim}" fill-rule="evenodd"${layer('Border')}/>`);
+  // pill: the radial sweep, the flat layer, and the light edge as a 0.387 px inside stroke
+  {
+    const [a, bb, c, d, e, g] = fill.m, rg = `${id}r`, eg = `${id}e`, cp = `${id}c`, P = layer('Pill');
+    const mx = [a * W, bb * H, c * W, d * H, e * W + 1, g * H + 1].map(f);
+    defs.push(`<radialGradient id="${rg}" cx="0" cy="0" r="10" gradientUnits="userSpaceOnUse" gradientTransform="matrix(${mx.join(' ')})">${fill.stops.map(([o, col]) => `<stop offset="${f(o)}" stop-color="${col}"/>`).join('')}</radialGradient>`);
+    body.push(`<path d="${pill}" fill="url(#${rg})"${P}/>`);
+    if (fill.over) body.push(`<path d="${pill}" fill="${fill.over[0]}" fill-opacity="${fill.over[1]}"${P}/>`);
+    defs.push(`<linearGradient id="${eg}" x1="0" y1="1" x2="0" y2="${1 + H}" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.2"/></linearGradient>`);
+    defs.push(`<clipPath id="${cp}"><path d="${pill}"/></clipPath>`);
+    body.push(`<path d="${pill}" fill="none" stroke="url(#${eg})" stroke-width="${f(2 * T.edge)}" clip-path="url(#${cp})" style="mix-blend-mode:overlay"${P}/>`);
+  }
+  // the badge, fitted to 28 px and centred on the slot
+  {
+    const bx = badgeBounds(spec), m = Math.max(bx.w, bx.h);
+    const vb = [bx.x + bx.w / 2 - m / 2, bx.y + bx.h / 2 - m / 2, m, m].map(f);
+    const cx = 1 + T.slot / 2, cy = 1 + H / 2;
+    const inner = renderBadge(spec, { background: 'none', plateBase: T.plate, target: opts.target, facets: opts.facets });
+    body.push(inner.replace(/^<svg [^>]*?(data-name="[^"]*")?>/, (_, nm) => `<svg x="${f(cx - T.icon / 2)}" y="${f(cy - T.icon / 2)}" width="${T.icon}" height="${T.icon}" viewBox="${vb.join(' ')}" overflow="visible" data-l="Badge"${nm ? ' ' + nm : ''}>`));
+  }
+  // the label
+  {
+    const tg = `${id}t`, sh = `${id}s`, x = 1 + T.slot + T.gap + T.pad, top = 1 + (H - T.cap) / 2, base = top + T.cap;
+    defs.push(`<linearGradient id="${tg}" x1="0" y1="${f(top)}" x2="0" y2="${f(base)}" gradientUnits="userSpaceOnUse"><stop stop-color="#D6D6D6"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient>`);
+    defs.push(`<filter id="${sh}" x="-5%" y="-40%" width="110%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="0.5" stdDeviation="0.25" flood-color="#000000" flood-opacity="0.16"/></filter>`);
+    const t = text.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+    body.push(`<text x="${f(x)}" y="${f(base)}" font-family="${TAG_FONT.replace(/"/g, "'")}" font-size="${T.size}" font-weight="600" fill="url(#${tg})" filter="url(#${sh})" data-l="Label" data-w="${tw}">${t}</text>`);
+  }
+  const s = opts.scale || 1;
+  const nm = ['Tag', spec.id, spec.name].filter(Boolean).join(' ').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f((FW + 2 * b) * s)}" height="${f((FH + 2 * b) * s)}" viewBox="${-b} ${-b} ${FW + 2 * b} ${FH + 2 * b}" fill="none" overflow="visible" data-name="${nm}" data-kind="tag"><defs>${defs.join('')}</defs>${body.join('')}</svg>`;
+}

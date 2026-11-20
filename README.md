@@ -14,11 +14,11 @@ Then open http://localhost:5230/
 
 | File | What it is |
 | --- | --- |
-| `engine.js` | Shapes (incl. `petals`, `puff`, `burst` glyphs drawn from the bases, `rot` on glyphs), palettes, blend maths, dot rule, `renderBadge(spec)` to SVG |
+| `engine.js` | Shapes (incl. `petals`, `puff`, `burst` glyphs drawn from the bases, `rot` on glyphs), palettes, blend maths, dot rule, `renderBadge(spec)` to SVG, `renderTag(spec)` for tags |
 | `catalog.js` | Families (plate + gem pairs), the Figma badges (A, B, C, H, I, K), the new families (D, E, F, G, J), colours, the level family and bands |
 | `digits.js` | PolySans Bulky and Bulky Wide digits as vector outlines, for level numbers |
 | `presets.js` | Glyph sets for the generator and the placement rule |
-| `app.js`, `index.html`, `style.css` | The creator UI: Library, Editor, Generator, Rules |
+| `app.js`, `index.html`, `style.css` | The creator UI: Library, Tags, Editor, Generator, Rules |
 | `ref/` | 150 px renders of the Figma originals, used by the compare views |
 | `themes.js` | Themed silhouettes (crown, flame, padlock, anchor...) where the gem is the icon, in review rounds |
 | `lab.html` | Shape lab, http://localhost:5230/lab.html, shows every round with keep/cut notes |
@@ -121,13 +121,28 @@ Levels are one family on the brilliant, the diamond, which no badge family uses 
 | Ruby | 100 to 199 | Echo + top bar + bottom line, glass number |
 | Purple | 200+ | Two echoes + top bar + bottom line, glass number |
 
+## Tags
+
+A tag is the small pill the app shows next to a name: the badge, scaled down, and its name in caps (Figma HyperNova, node 1010:75704). Every badge has one, in its own colour: `renderTag(spec, { label, scale, bleed, target })` in `engine.js`, and the **Tags** tab in the creator (every family, a label and colour override, SVG, PNG, ZIP, Copy for Figma). The Editor shows the tag of the badge you are editing, the Generator can ZIP the tags of a batch, and the client list shows each family's tags.
+
+Built as in Figma, in px at 1x:
+
+- frame 22 px tall, 1 px border black 48%, radius 3
+- pill 20 px tall, radius 2, a 0.387 px light edge (white, Overlay, fading to the bottom), a radial sweep from the top right corner
+- badge in a 20 x 20 slot on the left, drawn 28 px across and centred on it, so it spills 4 px over the pill; its plate gets an opaque #1D1D1D base (as in Figma) so the pill does not show through
+- label: gap 2, 4 px padding each side, 2 px to the right edge; PolySans Median 10 px in caps, #D6D6D6 to white, shadow 0 0.5 0.5 black 16%, centred on the cap height. The pill is 32 px plus the label width, rounded up
+
+Pill colours follow the badge colour. Silver (#292929 at 74% on top), gold and purple (black 24% on top) are the Figma stops and handles; blue is kept for custom tags. Bronze is derived from gold and ruby from purple with the same HSL shift that takes one badge palette to the other, never more saturated than the Figma pill. Custom badge colours derive from purple the same way.
+
+The label is live text, not outlines: PolySans Median (weight 600 in PolySans) where installed, then Inter. In the browser it is measured before the pill is sized; elsewhere a table of PolySans advance widths is used. The trial font has no `$`, so dollar signs fall back to another font until the licensed PolySans is installed. Standalone files get 4 px of room around the frame (`bleed`) so the badge's spill is not cut off; inline the SVG is `overflow: visible`.
+
 ## Client list
 
 `list.html` shows every badge by family (A to K, then a sample of levels) with id, name and rarity, in the HyperNova app style (Figma HyperNova, node 591:74416): page #191919, panels #1F1F1F with corner brackets, 1 px dividers, sharp corners, PolySans where installed (Inter otherwise). Shareable link: https://todels.github.io/hypernova-badges/list.html
 
 ## Into Figma
 
-The Figma plugin in `figma-plugin/` pastes badges as native layers: one vector per part with all its fills and blend modes, and the bevels as real 1 px inside or outside strokes, so no masks. Click **Copy for Figma** (Editor, or next to a family in the Library), then press Cmd+V in the plugin. Install and details: `figma-plugin/README.md`.
+The Figma plugin in `figma-plugin/` pastes badges as native layers: one vector per part with all its fills and blend modes, and the bevels as real 1 px inside or outside strokes, so no masks. Click **Copy for Figma** (Editor, or next to a family in the Library), then press Cmd+V in the plugin. Tags paste the same way (Tags tab): an auto layout frame like the Figma tag (Frame > Pill > Icon + Label), the badge inside as its own layers, the label as live text, so retyping it resizes the pill. Install and details: `figma-plugin/README.md`.
 
 `export/` holds single badges as SVG (150 x 150 on the black frame, Figma's native blend layers). Made with `renderBadge(spec, { target: 'figma' })`, the same as Copy for Figma. Drop them on the plugin window for native layers; pasted straight onto the canvas, Figma turns the bevels into masks.
 

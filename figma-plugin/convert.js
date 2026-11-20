@@ -104,12 +104,13 @@
     const W = vb.length === 4 ? vb[2] : num(svg, 'width', 150), H = vb.length === 4 ? vb[3] : num(svg, 'height', 150);
     const ids = {};
     for (const el of svg.querySelectorAll('[id]')) ids[el.getAttribute('id')] = el;
-    const out = { name: svg.getAttribute('data-name') || 'Badge', w: W, h: H, bg: null, layers: [] };
+    const out = { name: svg.getAttribute('data-name') || 'Badge', kind: svg.getAttribute('data-kind') || 'badge', w: W, h: H, ox: vb.length === 4 ? vb[0] : 0, oy: vb.length === 4 ? vb[1] : 0, bg: null, layers: [], children: [] };
     const byKey = new Map();
     let auto = 0;
 
     for (const el of svg.querySelectorAll('path, rect')) {
       if (el.closest('defs, clipPath, mask, pattern')) continue;
+      if (el.closest('svg') !== svg) continue; // inside a nested svg (a tag's badge): that is its own frame
       const tag = el.getAttribute('data-l');
       const isRect = el.nodeName === 'rect';
       const rx = isRect ? num(el, 'x') : 0, ry = isRect ? num(el, 'y') : 0, rw = isRect ? num(el, 'width') : 0, rh = isRect ? num(el, 'height') : 0;
@@ -139,7 +140,8 @@
         const gc = g && (g.getAttribute('clip-path') || '').match(/url\(#([^)]+)\)/);
         const rects = gc && ids[gc[1]] ? [...ids[gc[1]].children] : [];
         if (rects.length && rects.every((r) => r.nodeName === 'rect') && stroke.type === 'SOLID') {
-          const iv = rects.map((r) => [Math.max(0, num(r, 'x')) / W, Math.min(W, num(r, 'x') + num(r, 'width')) / W]).sort((a, b) => a[0] - b[0]);
+          // (in frame pixels: a cropped viewBox, like a tag's badge, starts at ox)
+          const ox = out.ox, iv = rects.map((r) => [(Math.max(ox, num(r, 'x')) - ox) / W, (Math.min(ox + W, num(r, 'x') + num(r, 'width')) - ox) / W]).sort((a, b) => a[0] - b[0]);
           const c = stroke.color, stops = [];
           let at = 0;
           for (const [a, b] of iv) {
@@ -148,7 +150,7 @@
             at = Math.min(1, b + 1e-4);
           }
           stops.push({ position: at, color: { ...c, a: 0 } }, { position: 1, color: { ...c, a: 0 } });
-          stroke = { type: 'LINEAR', p1: [0, H / 2], p2: [W, H / 2], stops, opacity: stroke.opacity, blend: stroke.blend };
+          stroke = { type: 'LINEAR', p1: [ox, out.oy + H / 2], p2: [ox + W, out.oy + H / 2], stops, opacity: stroke.opacity, blend: stroke.blend };
         }
       }
 
@@ -174,16 +176,43 @@
       if (stroke) { L.strokes.push(stroke); L.strokeWeight = weight; L.strokeAlign = align; }
     }
     for (const L of out.layers) delete L.key;
+
+    // tags: the badge is a nested svg (its own frame, scaled by its viewBox) and the label is live text
+    for (const el of svg.children) {
+      if (el.nodeName === 'svg') {
+        const copy = el.cloneNode(true);
+        copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const frame = fromSvg(new XMLSerializer().serializeToString(copy));
+        const nb = (el.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+        out.children.push({ type: 'frame', name: el.getAttribute('data-name') || frame.name, x: num(el, 'x'), y: num(el, 'y'), w: num(el, 'width', frame.w), h: num(el, 'height', frame.h), vb: nb.length === 4 ? nb : [0, 0, frame.w, frame.h], frame });
+      } else if (el.nodeName === 'text') {
+        const fill = paint(inherited(el, 'fill') ?? '#000000', el.getAttribute('fill-opacity'), styleProp(el, 'mix-blend-mode'), ids);
+        const fm = (el.getAttribute('filter') || '').match(/url\(#([^)]+)\)/);
+        const ds = fm && ids[fm[1]] && ids[fm[1]].querySelector('feDropShadow');
+        const shadow = ds ? { dx: num(ds, 'dx'), dy: num(ds, 'dy'), blur: 2 * num(ds, 'stdDeviation'), color: color(ds.getAttribute('flood-color')) || { r: 0, g: 0, b: 0 }, a: +(ds.getAttribute('flood-opacity') ?? 1) } : null;
+        out.children.push({ type: 'text', name: el.getAttribute('data-l') || 'Text', text: el.textContent, x: num(el, 'x'), y: num(el, 'y'), size: num(el, 'font-size', 16), weight: +(el.getAttribute('font-weight') || 400), family: el.getAttribute('font-family') || '', fill, shadow, w: num(el, 'data-w') });
+      }
+    }
+    return out;
+  }
+
+  // every top-level <svg>...</svg> in a text (nested svgs stay inside their parent)
+  function splitSvgs(text) {
+    const out = [], re = /<svg\b|<\/svg>/g;
+    let depth = 0, start = -1, m;
+    while ((m = re.exec(text))) {
+      if (m[0] === '</svg>') { if (depth > 0 && --depth === 0) out.push(text.slice(start, m.index + 6)); }
+      else if (depth++ === 0) start = m.index;
+    }
     return out;
   }
 
   // a paste can hold several SVGs
   function fromText(text) {
-    const svgs = String(text).match(/<svg[\s\S]*?<\/svg>/g) || [];
-    return svgs.map(fromSvg);
+    return splitSvgs(String(text)).map(fromSvg);
   }
 
-  const api = { fromSvg, fromText, normPath };
+  const api = { fromSvg, fromText, normPath, splitSvgs };
   root.hbFigma = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

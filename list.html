@@ -7,7 +7,7 @@
 <meta name="description" content="Every Hypernova badge, by family.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* HyperNova UI tokens (Figma HyperNova, node 591:74416) */
   :root {
@@ -69,6 +69,12 @@
   .cap .tag { color: var(--text-2); font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dot { width: 6px; height: 6px; flex: none; }
 
+  /* tags: each badge as the small pill the app shows next to a name (Figma HyperNova 1010:75704) */
+  .tagbar { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .tagbar .tl { color: var(--text-2); font-size: 12px; }
+  .tagwrap { display: flex; flex-wrap: wrap; gap: 14px 16px; padding: 16px 16px 14px 18px; background: #0b0b0b; outline: 1px solid var(--muted); outline-offset: -1px; min-height: 54px; }
+  .tagwrap svg { display: block; overflow: visible; }
+
   .foot { padding: 8px 0 24px; color: var(--text-2); font-size: 12px; }
 
   @media (max-width: 860px) {
@@ -100,7 +106,7 @@
   <div class="gut"></div>
 </div>
 <script type="module">
-import { renderBadge } from './engine.js';
+import { renderBadge, renderTag } from './engine.js';
 import { ALL_BADGES, FAMILIES, LEVEL_SHOWCASE, bandOf } from './catalog.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -141,10 +147,16 @@ document.getElementById('list').innerHTML = fams.map((f, i) => `
       <span class="meta">${esc(f.shape)}${f.note ? ` · ${esc(f.note)}` : ''}</span>
       <span class="count">${f.list.length} badge${f.list.length === 1 ? '' : 's'}</span></div>
     <div class="grid">${f.list.map(cell).join('')}</div>
-  </section>`).join('') + `<div class="foot">Rarity: common bronze, rare silver, epic gold, legendary ruby, and purple for the top step of a ladder. Dots show rarity: common 2, rare 3, epic 4, legendary 5. Level badges show a sample of levels.</div>`;
+    <div class="tagbar"><span class="tl">Tags</span><div class="tagwrap" data-fam="${i}"></div></div>
+  </section>`).join('') + `<div class="foot">Rarity: common bronze, rare silver, epic gold, legendary ruby, and purple for the top step of a ladder. Dots show rarity: common 2, rare 3, epic 4, legendary 5. Level badges show a sample of levels. Tags carry the badge's colour.</div>`;
 
 const total = fams.reduce((n, f) => n + f.list.length, 0);
 document.getElementById('sum').innerHTML = `<b>${total}</b> badges in <b>${fams.length}</b> families, lowest to rarest in each`;
+// tags measure their label, so draw them once the label font is in (PolySans if installed, else Inter)
+(async () => {
+  try { await document.fonts.load("600 10px 'PolySans Trial'"); await document.fonts.load('600 10px Inter'); await document.fonts.ready; } catch { /* draw anyway */ }
+  document.querySelectorAll('.tagwrap').forEach((el) => { el.innerHTML = fams[+el.dataset.fam].list.map((b) => renderTag(b)).join(''); });
+})();
 document.getElementById('tabs').innerHTML = fams.map((f) => `<a href="#f-${letter(f.series) || 'L'}">${esc(letter(f.series) || 'L')}. ${esc(label(f.series).split(' ')[0])}</a>`).join('');
 </script>
 </body>

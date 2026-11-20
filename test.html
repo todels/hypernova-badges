@@ -3,7 +3,7 @@
 <style>body{margin:0;background:#000}#out>div{width:150px;height:150px}</style></head>
 <body><div id="out"></div>
 <script type="module">
-import { renderBadge } from './engine.js';
+import { renderBadge, renderTag } from './engine.js';
 import { FIGMA_BADGES, ALL_BADGES, FAMILIES } from './catalog.js';
 import { GLYPH_SETS, placeGlyphs } from './presets.js';
 window.badges = FIGMA_BADGES;
@@ -24,6 +24,16 @@ window.genSheet = (fams, sets, rarity, level, scale = 1) => {
   for (const f of fams) for (const k of sets) { const F = FAMILIES[f]; specs.push({ rarity, level, plate: F.plate, gem: F.gem, glyphs: placeGlyphs(GLYPH_SETS[k], F.gem).map((g) => ({ light: F.light, ...g })), ...(f === 'star' || f === 'lens' ? { dotPhase: 'split' } : {}), ...(F.spec || {}) }); }
   document.getElementById('out').innerHTML = `<div id="b" style="height:auto;display:grid;grid-template-columns:repeat(${sets.length},${150 * scale}px);width:${sets.length * 150 * scale}px">${specs.map((s) => renderBadge(s, { scale })).join('')}</div>`;
   return specs.length;
+};
+// tags: items are ids or [id, rarity, label]; one per row on the Figma page colour
+window.tags = (items, scale = 1, opts = {}) => {
+  const out = document.getElementById('out');
+  out.innerHTML = `<div id="b" style="height:auto;width:max-content;display:flex;flex-direction:column;gap:${12 * scale}px;padding:${8 * scale}px;background:#0B0B0B">${items.map((it) => {
+    const [id, rarity, label] = Array.isArray(it) ? it : [it];
+    const b = ALL_BADGES.find((x) => x.id === id);
+    return `<div style="line-height:0">${renderTag(rarity ? { ...b, rarity } : b, { scale, label, ...opts })}</div>`;
+  }).join('')}</div>`;
+  return true;
 };
 window.ready = true;
 </script></body></html>

@@ -1,6 +1,6 @@
 import {
   renderBadge, PALETTES, SHAPES, CUSTOM_SHAPES, registerShape, LIGHTS, TIER_ORDER, paletteFromColor,
-  shapePaths, SIZE,
+  shapePaths, SIZE, renderTag, tagSize,
 } from './engine.js';
 import { FAMILIES, FIGMA_BADGES, NEW_BADGES, ALL_BADGES, FAMILY_SHAPES, SPARE_SHAPES, CLIMB, RARITY_COLOUR, RARITY_DOTS, LADDER_TOP, LEVEL_SHOWCASE, LEVEL_BANDS, levelBadge, bandOf, OPEN } from './catalog.js';
 import { GLYPH_SETS, placeGlyphs } from './presets.js';
@@ -40,14 +40,14 @@ function download(name, data, type) {
   a.href = URL.createObjectURL(blob); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
-async function svgToPng(svg, px) {
+async function svgToPng(svg, px, py = px) {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   const img = new Image();
   img.src = url;
   await img.decode();
   const c = document.createElement('canvas');
-  c.width = c.height = px;
-  c.getContext('2d').drawImage(img, 0, 0, px, px);
+  c.width = px; c.height = py;
+  c.getContext('2d').drawImage(img, 0, 0, px, py);
   URL.revokeObjectURL(url);
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
@@ -96,6 +96,10 @@ const S = {
   bg: 'black',
   zoom: 2,
   showRef: true,
+  tagSel: store.get('hb.tagSel', 'B_4'),
+  tagZoom: store.get('hb.tagZoom', 2),
+  tagLabel: '',
+  tagRar: '',
   gen: store.get('hb.gen', { families: ['oval', 'hex', 'shield'], sets: ['diamond', 'sparkle', 'star5'], mode: 'levels', lvFrom: 1, lvTo: 250, rarities: ['bronze', 'silver', 'gold', 'ruby', 'purple'], from: 1, to: 6 }),
 };
 
@@ -106,7 +110,7 @@ function setTab(t) {
   S.tab = t; store.set('hb.tab', t);
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === t));
-  ({ library: renderLibrary, editor: buildEditor, generator: buildGenerator, rules: renderRules })[t]();
+  ({ library: renderLibrary, tags: renderTags, editor: buildEditor, generator: buildGenerator, rules: renderRules })[t]();
 }
 $('#tabs').addEventListener('click', (e) => { const t = e.target.closest('button')?.dataset.tab; if (t) setTab(t); });
 
@@ -183,6 +187,111 @@ $('#library').addEventListener('click', (e) => {
     openSpec(list.find((b) => b.id === c.dataset.open));
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* tags                                                                 */
+/* ------------------------------------------------------------------ */
+// Every badge as a tag (Figma HyperNova 1010:75704): the badge, scaled to 28 px, and its name in caps,
+// on a pill in the badge's own colour. The label and colour can be changed per tag for export.
+const TAG_BLEED = 4; // room around a standalone file, so the badge's spill is not cut off
+const tagPool = () => [...MINE, ...ALL_BADGES];
+const tagBase = () => tagPool().find((b) => b.id === S.tagSel) || ALL_BADGES[0];
+const tagSpec = () => { const b = tagBase(); return S.tagRar ? { ...b, rarity: S.tagRar, customColor: undefined } : b; };
+const tagOpts = (o = {}) => ({ label: S.tagLabel || undefined, ...o });
+const tagName = (b) => `tag_${(b.id || 'badge').replace(/[^\w-]+/g, '_')}`;
+async function tagPng(spec, k, o = {}) {
+  const { w, h } = tagSize(spec, o), b = TAG_BLEED;
+  return svgToPng(renderTag(spec, { ...o, scale: k, bleed: b }), (w + 2 * b) * k, (h + 2 * b) * k);
+}
+let TAG_GROUPS = [];
+function renderTags() {
+  TAG_GROUPS = [];
+  const groups = new Map();
+  if (MINE.length) groups.set('My badges', MINE);
+  for (const b of ALL_BADGES) { if (!groups.has(b.series)) groups.set(b.series, []); groups.get(b.series).push(b); }
+  const z = S.tagZoom;
+  let html = `<div class="toolbar">
+    <span class="muted">Every badge as a tag, in its own colour. Click one to export it.</span>
+    <div class="spacer"></div>
+    <div class="seg" id="tag-zoom">${[1, 2, 3].map((k) => `<button data-z="${k}" class="${z === k ? 'on' : ''}">${k}x</button>`).join('')}</div>
+    <button class="btn" data-tx="zip">Download all (ZIP)</button>
+  </div>`;
+  for (const [series, list] of groups) {
+    TAG_GROUPS.push(list);
+    html += `<div class="series"><h2>${esc(series)} <span>${list.length}</span><button class="btn small copyfam" data-tagfam="${TAG_GROUPS.length - 1}" title="Copies every tag in this family; press &#8984;V in the Hypernova badges plugin in Figma">Copy for Figma</button></h2>
+      <div class="tagrow" style="--z:${z}">${list.map((b) => `<button class="tagitem${b.id === S.tagSel ? ' on' : ''}" data-tag="${esc(b.id)}" title="${esc(b.id)} ${esc(b.name)}">${renderTag(b, { scale: z })}<span>${esc(b.id)}</span></button>`).join('')}</div></div>`;
+  }
+  $('#tag-list').innerHTML = html;
+  buildTagSide();
+}
+function tagPreviews() {
+  const s = tagSpec(), o = tagOpts();
+  const fit = Math.max(1, Math.min(4, Math.floor(272 / tagSize(s, o).w)));
+  $('#tag-big').innerHTML = renderTag(s, { ...o, scale: fit });
+  $('#tag-big').style.setProperty('--z', fit);
+  $('#tag-one').innerHTML = renderTag(s, o);
+  $('#tag-fit').textContent = `${fit}x`;
+}
+function buildTagSide() {
+  const base = tagBase();
+  $('#tag-side').innerHTML = `
+    <div class="sec"><h3>${esc(base.id)}<span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">${esc(base.name)}</span></h3>
+      <div class="tagbig" id="tag-big"></div>
+      <div class="tagone"><div id="tag-one"></div><span class="spacer"></span><span class="note">1x and <span id="tag-fit"></span></span></div>
+    </div>
+    <div class="sec"><h3>Tag</h3>
+      <label class="f"><span>Label</span><input type="text" id="tag-label" value="${esc(S.tagLabel)}" placeholder="${esc(base.name)}"></label>
+      <label class="f"><span>Colour</span><select id="tag-rar"><option value="">Badge colour (${esc(paletteOf(base).label)})</option>${TIER_ORDER.map((k) => `<option value="${k}"${S.tagRar === k ? ' selected' : ''}>${esc(PALETTES[k].label)}</option>`).join('')}</select></label>
+      <div class="note">The pill takes the badge's colour: the same radial sweep as the Figma tags (silver, gold, purple from Figma; bronze and ruby derived the same way the badge palettes are).</div>
+    </div>
+    <div class="sec"><h3>Export</h3>
+      <div class="actions">
+        <button class="btn wide primary" data-tx="figma">Copy for Figma</button>
+        <button class="btn" data-tx="svg">SVG</button>
+        <button class="btn" data-tx="copy">Copy SVG</button>
+        <button class="btn" data-tx="png2">PNG 2x</button>
+        <button class="btn" data-tx="png4">PNG 4x</button>
+        <button class="btn wide" data-tx="edit">Open the badge in the Editor</button>
+      </div>
+      <div class="note">Copy for Figma, then &#8984;V in the Hypernova badges plugin: an auto layout tag like the one in Figma (frame, pill, icon, label), the badge as its own layers and the label as live text in PolySans Median, so you can retype it and the pill resizes. Files keep the label as text too: they need PolySans installed to look right.</div>
+    </div>`;
+  tagPreviews();
+}
+$('#tags').addEventListener('click', async (e) => {
+  const zb = e.target.closest('#tag-zoom button');
+  if (zb) { S.tagZoom = +zb.dataset.z; store.set('hb.tagZoom', S.tagZoom); renderTags(); return; }
+  const fam = e.target.closest('[data-tagfam]');
+  if (fam) {
+    const list = TAG_GROUPS[+fam.dataset.tagfam] || [];
+    const text = list.map((b) => renderTag(b, { target: 'figma' })).join('\n');
+    navigator.clipboard.writeText(text).then(() => toast(`Copied ${list.length} tags. Press ⌘V in the Hypernova badges plugin in Figma.`), () => toast('Could not copy'));
+    return;
+  }
+  const t = e.target.closest('[data-tag]');
+  if (t) {
+    S.tagSel = t.dataset.tag; S.tagLabel = ''; S.tagRar = ''; store.set('hb.tagSel', S.tagSel);
+    document.querySelectorAll('#tag-list .tagitem').forEach((el) => el.classList.toggle('on', el === t));
+    buildTagSide();
+    return;
+  }
+  const x = e.target.closest('[data-tx]')?.dataset.tx;
+  if (!x) return;
+  const s = tagSpec(), o = tagOpts(), name = tagName(tagBase());
+  if (x === 'zip') {
+    const enc = new TextEncoder();
+    download('hypernova-tags-svg.zip', zip(tagPool().filter((b, i, a) => a.findIndex((c) => c.id === b.id) === i).map((b) => ({ name: `${tagName(b)}.svg`, data: enc.encode(renderTag(b, { bleed: TAG_BLEED })) }))));
+  }
+  if (x === 'svg') download(`${name}.svg`, renderTag(s, { ...o, bleed: TAG_BLEED }), 'image/svg+xml');
+  if (x.startsWith('png')) { const k = +x.slice(3); download(`${name}@${k}x.png`, await tagPng(s, k, o)); }
+  if (x === 'figma' || x === 'copy') {
+    const svg = renderTag(s, x === 'figma' ? { ...o, target: 'figma' } : { ...o, bleed: TAG_BLEED });
+    const msg = x === 'figma' ? 'Copied. Press ⌘V in the Hypernova badges plugin in Figma.' : 'SVG copied.';
+    try { await navigator.clipboard.writeText(svg); toast(msg); } catch { download(`${name}.svg`, svg, 'image/svg+xml'); }
+  }
+  if (x === 'edit') openSpec(tagBase());
+});
+$('#tags').addEventListener('input', (e) => { if (e.target.id === 'tag-label') { S.tagLabel = e.target.value; tagPreviews(); } });
+$('#tags').addEventListener('change', (e) => { if (e.target.id === 'tag-rar') { S.tagRar = e.target.value; tagPreviews(); } });
 
 function blankSpec() {
   const f = FAMILIES.hex;
@@ -343,6 +452,7 @@ function buildStage() {
     <div class="strips">
       <div class="strip"><h4>Every colour</h4><div class="items" id="st-rar"></div></div>
       <div class="strip"><h4>Every level</h4><div class="items" id="st-lv"></div></div>
+      <div class="strip"><h4>Tag</h4><div class="items tagstrip" id="st-tag"></div></div>
     </div>`;
   refreshStage();
 }
@@ -353,6 +463,7 @@ function refreshStage() {
   $('#st-canvas').innerHTML = `${ref}<figure><div class="bgbox ${S.bg === 'none' ? 'checker' : ''}">${big}</div><figcaption>${S.zoom}x</figcaption></figure>
     <figure><div class="bgbox ${S.bg === 'none' ? 'checker' : ''}">${one}</div><figcaption>1x, 150 px</figcaption></figure>`;
   $('#st-rar').innerHTML = TIER_ORDER.map((k) => `<button data-st="rar" data-v="${k}" class="${!s.customColor && s.rarity === k ? 'on' : ''}">${renderBadge({ ...s, rarity: k, customColor: undefined }, { scale: 0.62 })}<span>${PALETTES[k].label}</span></button>`).join('');
+  $('#st-tag').innerHTML = `<div style="--z:2">${renderTag(s, { scale: 2 })}</div><div>${renderTag(s)}</div>`;
   $('#st-lv').innerHTML = Array.from({ length: 11 }, (_, l) => `<button data-st="lv" data-v="${l}" class="${(s.level | 0) === l ? 'on' : ''}">${renderBadge({ ...s, level: l }, { scale: 0.5 })}<span>${l}</span></button>`).join('');
 }
 function buildInspector() {
@@ -365,6 +476,8 @@ function buildInspector() {
         <button class="btn" data-x="png4">PNG 600</button>
         <button class="btn wide primary" data-x="copyNative">Copy for Figma</button>
         <button class="btn wide" data-x="copy">Copy SVG</button>
+        <button class="btn" data-x="tagFigma">Copy tag for Figma</button>
+        <button class="btn" data-x="tagSvg">Tag SVG</button>
       </div>
       <div class="note">Copy for Figma, then press &#8984;V in the Hypernova badges plugin (figma-plugin/ in the repo): one layer per part with all its fills and blend modes, bevels as real 1 px inside or outside strokes, no masks. Copy SVG pastes straight onto the canvas, but Figma turns every bevel into a mask.</div>
     </div>
@@ -485,6 +598,10 @@ $('#ed-inspector').addEventListener('click', async (e) => {
     const msg = x === 'copyNative' ? 'Copied. Press \u2318V in the Hypernova badges plugin in Figma.' : 'SVG copied. Paste into Figma.';
     try { await navigator.clipboard.writeText(svg); toast(msg); } catch { download(`${fileName()}.svg`, svg, 'image/svg+xml'); }
   }
+  if (x === 'tagFigma') {
+    try { await navigator.clipboard.writeText(renderTag(s, { target: 'figma' })); toast('Tag copied. Press \u2318V in the Hypernova badges plugin in Figma.'); } catch { toast('Could not copy'); }
+  }
+  if (x === 'tagSvg') download(`tag_${fileName()}.svg`, renderTag(s, { bleed: TAG_BLEED }), 'image/svg+xml');
   if (x === 'save') {
     const i = MINE.findIndex((b) => b.id === s.id);
     const item = { ...clone(s), series: s.series || 'My badges' };
@@ -658,6 +775,7 @@ function buildGenerator() {
         <button class="btn primary wide" data-gx="zipsvg">Download ZIP (SVG)</button>
         <button class="btn" data-gx="zippng">ZIP PNG 300</button>
         <button class="btn" data-gx="json">JSON specs</button>
+        <button class="btn" data-gx="zipTags">ZIP tags (SVG)</button>
       </div><div class="note" id="gen-status"></div>
     </div>`;
   if (mode === 'levels') {
@@ -706,6 +824,7 @@ $('#gen-controls').addEventListener('click', async (e) => {
   const status = $('#gen-status');
   const enc = new TextEncoder();
   if (x === 'json') download('hypernova-badges.json', JSON.stringify(specs, null, 1), 'application/json');
+  if (x === 'zipTags') download('hypernova-tags-svg.zip', zip(specs.map((s) => ({ name: `tag_${s.id}.svg`, data: enc.encode(renderTag(s, { bleed: TAG_BLEED })) }))));
   if (x === 'zipsvg') download('hypernova-badges-svg.zip', zip(specs.map((s) => ({ name: `${s.id}.svg`, data: enc.encode(renderBadge(s)) }))));
   if (x === 'zippng') {
     const files = [];
@@ -790,6 +909,10 @@ function renderRules() {
     <h2>Level dots</h2>
     <p>Every dot sits on one line: the plate outline moved 5 px inwards (to the dot centre), so all dots are the same distance from the plate edge on every shape. Along that line the dots are spaced evenly by length. Odd counts put one dot at bottom centre, even counts start at the sides, so 4 dots are top, bottom and both sides ("split" turns everything by half a step, used by the star and C_5 badges). D, E, F and the I crest use hand-placed dots where the count matches (I: on the crest's corners). Parts of the line covered by the gem, or closer than 3 px to it, are skipped, so a dot is never drawn on the gem. Dots snap to whole pixels and are mirrored. Same plate, gem and level always gives the same dots.</p>
     <div class="anat">${dotDemo}</div>
+
+    <h2>Tags</h2>
+    <p>Every badge also comes as a tag: the badge at 28 px and its name in caps on a 20 px pill, in the badge's colour (Figma HyperNova 1010:75704). Frame 22 px with a 1 px black 48% border, pill radius 2 with a 0.387 px light edge and a radial sweep from the top right, label in PolySans Median 10 px with 4 px padding. The pill is 32 px plus the label. Silver, gold and purple pills are measured from Figma; bronze and ruby are derived from gold and purple with the badge palettes' own shift. See the Tags tab.</p>
+    <div class="tagrow" style="--z:2;margin:10px 0">${['A_1', 'B_4', 'I_2', 'E_3', 'K_5'].map((id) => { const b = ALL_BADGES.find((x) => x.id === id); return `<div class="tagitem" style="--z:2">${renderTag(b, { scale: 2 })}<span>${esc(PALETTES[b.rarity].label)}</span></div>`; }).join('')}</div>
 
     <h2>Level badges</h2>
     <p>Every family has a base shape of its own, so levels are one family on the brilliant (the diamond), which no badge family uses. Each colour band is a step of that ladder and adds a little: ${LEVEL_BANDS.map((b) => `${PALETTES[b.rarity].label.toLowerCase()} ${esc(b.label)}`).join(', ')}. The level number is set in PolySans (the Hypernova font), converted to vector outlines so it exports cleanly and never depends on an installed font. Numbers are engraved by default, like the recessed B and C glyphs, so they read on light metals too. Dots show progress through the band.</p>
