@@ -1467,16 +1467,17 @@ export const TAG_FILLS = {
 };
 const LIFT = 6;
 const lum = (hx) => { const [r, g, b] = rgb(hx); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-function deriveTag(base, pal) {
+// sat: an extra saturation factor (bronze 0.6: the user found the full gold-derived orange too saturated next to the copper badge, 2026-11-20)
+function deriveTag(base, pal, sat = 1) {
   const B = TAG_FILLS[base], peak = B.stops.reduce((a, b) => (lum(b[1]) > lum(a[1]) ? b : a))[1];
   const [hp] = hexToHsl(peak), [, s0] = hexToHsl(PALETTES[base].gem.stops[0][1]), [h1, s1] = hexToHsl(pal.gem.stops[0][1]);
   const stops = B.stops.map(([o, c]) => {
     const [h, s, l] = hexToHsl(c);
-    return [o, hsl((h + h1 - hp + 720) % 360, s * Math.min(1, s1 / s0), Math.max(0, Math.min(100, l + LIFT)))];
+    return [o, hsl((h + h1 - hp + 720) % 360, s * Math.min(1, s1 / s0) * sat, Math.max(0, Math.min(100, l + LIFT)))];
   });
   return { m: B.m, stops };
 }
-TAG_FILLS.bronze = deriveTag('gold', PALETTES.bronze);
+TAG_FILLS.bronze = deriveTag('gold', PALETTES.bronze, 0.6);
 TAG_FILLS.ruby = deriveTag('purple', PALETTES.ruby);
 export const tagFill = (spec) => (spec.customColor ? deriveTag('purple', paletteFromColor(spec.customColor)) : TAG_FILLS[spec.rarity] || TAG_FILLS.silver);
 
