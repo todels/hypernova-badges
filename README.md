@@ -23,7 +23,8 @@ Then open http://localhost:5230/
 | `themes.js` | Themed silhouettes (crown, flame, padlock, anchor...) where the gem is the icon, in review rounds |
 | `lab.html` | Shape lab, http://localhost:5230/lab.html, shows every round with keep/cut notes |
 | `test.html` | Hooks for headless screenshot tests |
-| `list.html` | Every badge by family on one page, in the HyperNova app style, for sharing: https://todels.github.io/hypernova-badges/list.html |
+| `list.html` | Every badge and tag by family on one page, then the rules, with a Download all (ZIP) button, in the HyperNova app style, for sharing: https://todels.github.io/hypernova-badges/list.html |
+| `zip.js`, `raster.js` | ZIP writer and download; badge and tag PNGs (tag labels drawn on the canvas so the page's fonts are used). Shared by the creator and the list page |
 | `figma-plugin/` | Figma plugin: pastes badges as native layers (see Into Figma) |
 
 ## Spec
@@ -132,13 +133,15 @@ Built as in Figma, in px at 1x:
 - badge in a 20 x 20 slot on the left, drawn 28 px across and centred on it, so it spills 4 px over the pill; its plate gets an opaque #1D1D1D base (as in Figma) so the pill does not show through
 - label: gap 2, 4 px padding each side, 2 px to the right edge; PolySans Median 10 px in caps, #D6D6D6 to white, shadow 0 0.5 0.5 black 16%, centred on the cap height. The pill is 32 px plus the label width, rounded up
 
-Pill colours follow the badge colour. Silver (#292929 at 74% on top), gold and purple (black 24% on top) are the Figma stops and handles; blue is kept for custom tags. Bronze is derived from gold and ruby from purple with the same HSL shift that takes one badge palette to the other, never more saturated than the Figma pill. Custom badge colours derive from purple the same way.
+Pill colours follow the badge colour. Silver (#292929 at 74% on top), gold and purple (black 24% on top) are the Figma stops and handles; blue is kept for custom tags. Bronze is derived from gold and ruby from purple: every stop is turned so the brightest one has the badge gem's hue, saturation is kept at most the Figma pill's, and lightness goes up 6 with no black layer on top, so the pill reads as light as its badge (the first ruby, purple's recipe with its black layer, read as maroon). Custom badge colours derive from purple the same way.
 
 The label is live text, not outlines: PolySans Median (weight 600 in PolySans) where installed, then Inter. In the browser it is measured before the pill is sized; elsewhere a table of PolySans advance widths is used. The trial font has no `$`, so dollar signs fall back to another font until the licensed PolySans is installed. Standalone files get 4 px of room around the frame (`bleed`) so the badge's spill is not cut off; inline the SVG is `overflow: visible`.
 
 ## Client list
 
 `list.html` shows every badge by family (A to K, then a sample of levels) with id, name and rarity, in the HyperNova app style (Figma HyperNova, node 591:74416): page #191919, panels #1F1F1F with corner brackets, 1 px dividers, sharp corners, PolySans where installed (Inter otherwise). Shareable link: https://todels.github.io/hypernova-badges/list.html
+
+Each family shows its tags under its badges. The last panel, Rules, is the rules only (anatomy, bevel, symmetry, families, colours and rarity, dots, levels, glyph light, tags), without the Figma corrections or open questions from the creator's Rules tab. Download all (ZIP), top right, builds one ZIP in the browser: `badges/svg` and `badges/png` (2x), `tags/svg` and `tags/png` (2x), `figma/` (badge and tag SVGs for the plugin), `badges.json` and a README. The editor is not on this page.
 
 ## Into Figma
 

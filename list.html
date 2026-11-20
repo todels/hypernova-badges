@@ -75,6 +75,31 @@
   .tagwrap { display: flex; flex-wrap: wrap; gap: 14px 16px; padding: 16px 16px 14px 18px; background: #0b0b0b; outline: 1px solid var(--muted); outline-offset: -1px; min-height: 54px; }
   .tagwrap svg { display: block; overflow: visible; }
 
+  /* download everything */
+  .dl { height: 32px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-radius: var(--radius);
+    background: var(--accent); color: #fff; font: 400 12px/1 var(--font); cursor: pointer; white-space: nowrap; }
+  .dl:hover { background: #9a5be8; }
+  .dl:disabled { background: var(--tab-on); color: var(--text-2); cursor: default; }
+
+  /* rules */
+  .rules { display: flex; flex-direction: column; gap: 28px; }
+  .rules .ph { margin-bottom: 0; }
+  .rule h3 { margin: 0 0 8px; font-size: 15px; line-height: 20px; font-weight: 400; }
+  .rule p, .rule li { margin: 0 0 8px; max-width: 760px; color: var(--text-2); font-size: 13px; line-height: 20px; }
+  .rule p b, .rule li b { color: var(--text); font-weight: 400; }
+  .rule ol, .rule ul { margin: 0; padding-left: 18px; }
+  .figs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .figs figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-2); font-size: 11px; line-height: 14px; text-align: center; }
+  .figs figure > div { background: #000; outline: 1px solid var(--muted); outline-offset: -1px; }
+  .figs svg { display: block; }
+  .ctable { border-collapse: collapse; margin-top: 12px; font-size: 12px; min-width: min(100%, 620px); }
+  .ctable th, .ctable td { text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var(--muted); vertical-align: middle; color: var(--text-2); }
+  .ctable th { font-weight: 400; color: var(--text-2); opacity: .7; }
+  .ctable td:first-child { width: 56px; }
+  .ctable td b { color: var(--text); font-weight: 400; }
+  .rtags { display: flex; flex-wrap: wrap; gap: 14px 18px; margin-top: 12px; padding: 18px 18px 16px 20px; background: #0b0b0b; outline: 1px solid var(--muted); outline-offset: -1px; }
+  .rtags svg { display: block; overflow: visible; }
+
   .foot { padding: 8px 0 24px; color: var(--text-2); font-size: 12px; }
 
   @media (max-width: 860px) {
@@ -86,6 +111,7 @@
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .tile svg { width: 100%; max-width: 150px; height: auto; }
     .top .tabs { display: none; }
+    .top .dl { margin-left: auto; }
   }
 </style>
 </head>
@@ -93,6 +119,7 @@
 <header class="top">
   <div class="brand">Hypernova <span>/ Badges</span></div>
   <nav class="tabs" id="tabs"></nav>
+  <button class="dl" id="dl" title="Every badge and tag as SVG and PNG, plus Figma-ready files">Download all (ZIP)</button>
 </header>
 <div class="page">
   <div class="gut"></div>
@@ -106,8 +133,10 @@
   <div class="gut"></div>
 </div>
 <script type="module">
-import { renderBadge, renderTag } from './engine.js';
-import { ALL_BADGES, FAMILIES, LEVEL_SHOWCASE, bandOf } from './catalog.js';
+import { renderBadge, renderTag, PALETTES } from './engine.js';
+import { ALL_BADGES, FAMILIES, LEVEL_SHOWCASE, LEVEL_BANDS, RARITY_COLOUR, RARITY_DOTS, LADDER_TOP, levelBadge, bandOf } from './catalog.js';
+import { zip, download } from './zip.js';
+import { svgToPng, tagPng } from './raster.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 // rarity names by colour (common bronze, rare silver, epic gold, legendary ruby, purple on ladder tops)
@@ -135,7 +164,7 @@ const cell = (b) => {
     <div class="tile">${renderBadge(b)}</div>
     <div class="cap">
       <div class="row"><span class="id">${esc(b.id.replace('_', ' '))}</span>${alt}</div>
-      <div class="name" title="${esc(b.name)}">${esc(b.name.replace(/ \(alt\)$/, ''))}</div>
+      <div class="name" title="${esc(b.name)}">${esc(b.name)}</div>
       <div class="row tag"><i class="dot" style="background:${SWATCH[b.rarity] || '#bbb'}"></i>${esc(rar)}${tag}</div>
     </div>
   </div>`;
@@ -150,14 +179,128 @@ document.getElementById('list').innerHTML = fams.map((f, i) => `
     <div class="tagbar"><span class="tl">Tags</span><div class="tagwrap" data-fam="${i}"></div></div>
   </section>`).join('') + `<div class="foot">Rarity: common bronze, rare silver, epic gold, legendary ruby, and purple for the top step of a ladder. Dots show rarity: common 2, rare 3, epic 4, legendary 5. Level badges show a sample of levels. Tags carry the badge's colour.</div>`;
 
+// ---- rules: how every badge is built (the rules only)
+const B7 = ALL_BADGES.find((b) => b.id === 'B_7');
+const fig = (svg, cap) => `<figure><div>${svg}</div>${cap}</figure>`;
+const LADDER = ['bronze', 'silver', 'gold', 'ruby', 'purple'];
+const rarityOf = Object.fromEntries(Object.entries(RARITY_COLOUR).map(([r, c]) => [c, r]));
+const tops = LADDER_TOP.filter((id) => ALL_BADGES.some((b) => b.id === id));
+const sample = { bronze: 'A_1', silver: 'B_4', gold: 'I_2', ruby: 'K_4', purple: 'K_5' };
+// the rarest of each family (the last one, families run lowest to rarest)
+const famTops = fams.map((f) => [f, f.list.filter((b) => !b.option).at(-1)]);
+const rules = `
+  <section class="panel rules" id="rules"><i class="c1"></i><i class="c2"></i>
+    <div class="ph"><span class="n">${String(fams.length + 1).padStart(2, '0')}</span><h2>Rules</h2><span class="meta">How every badge is built</span></div>
+
+    <div class="rule"><h3>Anatomy, bottom to top</h3>
+      <div class="figs">${[
+        ['Plate', { ...B7, gem: null, glyphs: [], level: 0 }],
+        ['Gem', { ...B7, gem: { ...B7.gem, split: false }, glyphs: [], level: 0 }],
+        ['Left facet', { ...B7, glyphs: [], level: 0 }],
+        ['Glyphs', { ...B7, level: 0 }],
+        ['Rarity dots', B7],
+      ].map(([l, sp], i) => fig(renderBadge(sp, { scale: 0.8 }), `${i + 1}. ${l}`)).join('')}</div>
+      <ol style="margin-top:14px">
+        <li><b>Plate</b>: the badge colour at 12 to 16%, a soft white highlight at 20%, and a 1 px inside bevel.</li>
+        <li><b>Gem</b>: a three stop gradient (dark, light at 41%, dark) with the same inside bevel.</li>
+        <li><b>Left facet</b>: the left half of the gem is shaded darker and gets its own bevel, which draws the centre line.</li>
+        <li><b>Glyphs</b>: glass (a white gradient that clears in the middle) or recess (black at 21 or 49%), with a 1 px bevel outside. The gem's split runs on through every glyph: recessed glyphs get a darker left half, glass glyphs a darker left half on bronze, silver and gold and a lighter right half on ruby and purple, with the seam on the same pixel column as the gem's centre line.</li>
+        <li><b>Dots and ornaments</b>: 2 x 2 px white rarity dots, and on some badges a top bar, a bottom line or side tips.</li>
+      </ol>
+    </div>
+
+    <div class="rule"><h3>The bevel</h3>
+      <p>One rule everywhere: a 1 px line, black at the top to white at the bottom, in Overlay. It sits inside plates and gems and outside glyphs.</p>
+    </div>
+
+    <div class="rule"><h3>Size and symmetry</h3>
+      <p>Every badge is a 150 x 150 frame, centred on x = 75. Every shape is drawn as its right half and mirrored, so both sides are identical. Corners are true round fillets, sizes are whole pixels, and widths are even so the centre line always lands on x = 75.</p>
+    </div>
+
+    <div class="rule"><h3>Families</h3>
+      <p>Each family has one base shape of its own, and no two families share one. The glyphs inside are drawn from the family's own outline, never from another family: a flower with more petals, the wavy seal in rings, smaller shields, clouds and cushions, the pennant's notched flag. The rarer the badge, the fuller it gets: the top of a family has two layers of its shape (a recessed one under a glass one, or a ring around a core). Each family runs from lowest to rarest.</p>
+      <div class="figs">${famTops.map(([f, b]) => fig(renderBadge(b, { scale: 0.62 }), `${esc(letter(f.series) || 'L')}. ${esc(label(f.series).split(' ')[0])}<br>${esc(f.shape)}`)).join('')}</div>
+    </div>
+
+    <div class="rule"><h3>Colours and rarity</h3>
+      <p>Colours follow one ladder, bronze, silver, gold, ruby, purple, the same for rarity and for levels. Common badges are bronze, rare silver, epic gold and legendary ruby. Purple is kept for the top step of a ladder (${tops.join(', ')}). Colours repeat inside a family.</p>
+      <table class="ctable"><tr><th></th><th>Colour</th><th>Badges</th><th>Levels</th><th>Dots</th></tr>${LADDER.map((k) => {
+        const r = rarityOf[k], band = LEVEL_BANDS.find((b) => b.rarity === k);
+        return `<tr><td>${renderBadge({ ...ALL_BADGES.find((b) => b.id === sample[k]), rarity: k }, { scale: 0.3 })}</td><td><b>${esc(PALETTES[k].label)}</b></td><td>${r ? r[0].toUpperCase() + r.slice(1) : 'Top of a ladder'}</td><td>${band ? `${band.from} to ${band.to}` : ''}</td><td>${r ? RARITY_DOTS[r] : 'By rarity'}</td></tr>`;
+      }).join('')}</table>
+    </div>
+
+    <div class="rule"><h3>Rarity dots</h3>
+      <p>Dots show rarity: ${Object.entries(RARITY_DOTS).map(([r, n]) => `${r} ${n}`).join(', ')}, the same on every badge of that rarity. Every dot sits on one line, the plate outline moved 5 px inwards, so all dots are the same distance from the plate edge on every shape, spaced evenly along it. Odd counts put one dot at the bottom centre. A dot is never drawn on the gem or closer than 3 px to it, and dots are mirrored and snapped to whole pixels. Where a shape has no room on the centre line (the star), odd counts round up.</p>
+      <div class="figs">${[2, 3, 4, 5].map((n) => fig(renderBadge({ ...B7, glyphs: [], level: n }, { scale: 0.5 }), `${n} dots`)).join('')}</div>
+    </div>
+
+    <div class="rule"><h3>Level badges</h3>
+      <p>Levels are one family on the brilliant. Each colour band is a step of the ladder and adds a little: ${LEVEL_BANDS.map((b) => `${PALETTES[b.rarity].label.toLowerCase()} ${esc(b.label)}`).join(', ')}. The number is set in PolySans as vector outlines, engraved by default, and dots show progress through the band. Bands: ${LEVEL_BANDS.map((b) => `${PALETTES[b.rarity].label.toLowerCase()} ${b.from} to ${b.to}`).join(', ')} (the ranges after 49 are to be confirmed).</p>
+      <div class="figs">${[1, 19, 20, 49, 50, 99, 100, 199, 200, 999].map((n) => fig(renderBadge(levelBadge(n), { scale: 0.5 }), `Level ${n}`)).join('')}</div>
+    </div>
+
+    <div class="rule"><h3>Glyph light</h3>
+      <p>Two lighting setups. <b>Center</b>: the glass highlight runs through the middle of the glyph and the bevel spans it. <b>High</b>: the highlight sits high and the bevel is lifted, so the lower edge is brighter. Each family has one.</p>
+    </div>
+
+    <div class="rule"><h3>Tags</h3>
+      <p>Every badge also comes as a tag, the pill shown next to a name: the badge at 28 px and its name in caps, in the badge's colour. The frame is 22 px tall with a 1 px black border at 48% and radius 3; the pill is 20 px tall, radius 2, with a 0.387 px light edge and a radial sweep from the top right corner. The badge sits in a 20 x 20 slot on the left and spills 4 px over the pill. The label is PolySans Median 10 px, #D6D6D6 to white, with 4 px of padding each side, so a pill is 32 px plus its label. Each family's tags are shown under its badges.</p>
+      <div class="rtags" id="rule-tags"></div>
+    </div>
+  </section>`;
+document.querySelector('#list .foot').insertAdjacentHTML('beforebegin', rules);
+
 const total = fams.reduce((n, f) => n + f.list.length, 0);
 document.getElementById('sum').innerHTML = `<b>${total}</b> badges in <b>${fams.length}</b> families, lowest to rarest in each`;
 // tags measure their label, so draw them once the label font is in (PolySans if installed, else Inter)
 (async () => {
   try { await document.fonts.load("600 10px 'PolySans Trial'"); await document.fonts.load('600 10px Inter'); await document.fonts.ready; } catch { /* draw anyway */ }
   document.querySelectorAll('.tagwrap').forEach((el) => { el.innerHTML = fams[+el.dataset.fam].list.map((b) => renderTag(b)).join(''); });
+  document.getElementById('rule-tags').innerHTML = LADDER.map((k) => renderTag(ALL_BADGES.find((b) => b.id === sample[k]), { scale: 2 })).join('');
 })();
-document.getElementById('tabs').innerHTML = fams.map((f) => `<a href="#f-${letter(f.series) || 'L'}">${esc(letter(f.series) || 'L')}. ${esc(label(f.series).split(' ')[0])}</a>`).join('');
+document.getElementById('tabs').innerHTML = fams.map((f) => `<a href="#f-${letter(f.series) || 'L'}">${esc(letter(f.series) || 'L')}. ${esc(label(f.series).split(' ')[0])}</a>`).join('') + '<a href="#rules">Rules</a>';
+
+// ---- download everything: badges and tags as SVG and PNG, Figma-ready files for the plugin, and the specs
+const slug = (b) => `${b.id}-${String(b.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+const README = `Hypernova badges, every badge on https://todels.github.io/hypernova-badges/list.html
+
+badges/svg   150 x 150 on black, one file per badge
+badges/png   the same at 2x (300 x 300)
+tags/svg     each badge as a tag (the pill with the badge and its name), 4 px of room around the 22 px frame
+tags/png     the same at 2x
+figma/       badges and tags for the Hypernova badges Figma plugin (drop the files on the plugin window):
+             native layers, blend modes and strokes; tags as auto layout frames
+badges.json  the badge specs
+
+Tag labels are live text in PolySans Median (Inter if PolySans is not installed); the PNGs have it drawn in.
+`;
+const btn = document.getElementById('dl');
+btn.addEventListener('click', async () => {
+  const label0 = btn.textContent;
+  btn.disabled = true;
+  try {
+    try { await document.fonts.load("600 10px 'PolySans Trial'"); await document.fonts.load('600 10px Inter'); } catch { /* use what is there */ }
+    const all = fams.flatMap((f) => f.list);
+    const files = [{ name: 'README.txt', data: README }, { name: 'badges.json', data: JSON.stringify(all, null, 1) }];
+    for (let i = 0; i < all.length; i++) {
+      const b = all[i], n = slug(b);
+      btn.textContent = `Preparing ${i + 1} of ${all.length}`;
+      files.push({ name: `badges/svg/${n}.svg`, data: renderBadge(b) });
+      files.push({ name: `tags/svg/tag_${n}.svg`, data: renderTag(b, { bleed: 4 }) });
+      files.push({ name: `figma/${n}.svg`, data: renderBadge(b, { target: 'figma' }) });
+      files.push({ name: `figma/tag_${n}.svg`, data: renderTag(b, { target: 'figma' }) });
+      files.push({ name: `badges/png/${n}@2x.png`, data: new Uint8Array(await (await svgToPng(renderBadge(b, { scale: 2 }), 300)).arrayBuffer()) });
+      files.push({ name: `tags/png/tag_${n}@2x.png`, data: new Uint8Array(await (await tagPng(b, 2)).arrayBuffer()) });
+    }
+    download('hypernova-badges.zip', zip(files));
+  } catch (e) {
+    alert('Could not build the ZIP: ' + e.message);
+  } finally {
+    btn.textContent = label0;
+    btn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>

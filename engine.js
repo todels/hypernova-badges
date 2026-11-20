@@ -1454,8 +1454,10 @@ export const TAG_FONT = `'PolySans Trial', 'PolySans', 'Inter', 'Helvetica Neue'
 
 // Pill fills as built in Figma: radial stops, the gradient's handles in the pill's own 0..1 box
 // (matrix a b c d e f, radius 10), and a flat layer on top (silver #292929 74%, purple black 24%).
-// Bronze is derived from gold and ruby from purple, with the same HSL shift that takes one badge
-// palette to the other (never more saturated than the Figma pill), so a tag always matches its badge.
+// Bronze is derived from gold and ruby from purple: the stops turned so the brightest one takes the
+// badge's hue, saturation scaled like the badge palettes (never above the Figma pill), 6 points lighter
+// and no black layer on top. Kept at the Figma darkness they read darker than their badges (user,
+// 2026-11-20: ruby looked maroon next to the pink ruby badge).
 const SWEEP = [-0.100472, 0.1, -0.020325, -0.324035, 1.004717, 0];
 export const TAG_FILLS = {
   silver: { m: SWEEP, over: ['#292929', 0.74], stops: [[0, '#4A4A4A'], [0.22201, '#656565'], [0.44402, '#818181'], [0.58302, '#696969'], [0.72201, '#515151'], [0.86101, '#393939'], [1, '#222222']] },
@@ -1463,14 +1465,17 @@ export const TAG_FILLS = {
   gold: { m: [-0.1, 0.0525, -0.0086815, -0.31995, 1, 0], stops: [[0, '#B97547'], [0.069712, '#C08A24'], [0.10457, '#C39412'], [0.13942, '#C79F00'], [0.56971, '#A27C0E'], [1, '#7E591D']] },
   purple: { m: [-0.101232, 0.1, -0.015886, -0.32338, 1.011143, 0], over: ['#000000', 0.24], stops: [[0, '#3B1C60'], [0.11101, '#502084'], [0.22201, '#6425A9'], [0.44402, '#8D2FF2'], [0.72201, '#803CCB'], [1, '#7348A5']] },
 };
-function shiftStops(stops, from, to) {
-  const [h0, s0, l0] = hexToHsl(from), [h1, s1, l1] = hexToHsl(to);
-  return stops.map(([o, c]) => {
+const LIFT = 6;
+const lum = (hx) => { const [r, g, b] = rgb(hx); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+function deriveTag(base, pal) {
+  const B = TAG_FILLS[base], peak = B.stops.reduce((a, b) => (lum(b[1]) > lum(a[1]) ? b : a))[1];
+  const [hp] = hexToHsl(peak), [, s0] = hexToHsl(PALETTES[base].gem.stops[0][1]), [h1, s1] = hexToHsl(pal.gem.stops[0][1]);
+  const stops = B.stops.map(([o, c]) => {
     const [h, s, l] = hexToHsl(c);
-    return [o, hsl((h + h1 - h0 + 720) % 360, (s * Math.min(1, s1 / s0)), Math.max(0, Math.min(100, l + l1 - l0)))];
+    return [o, hsl((h + h1 - hp + 720) % 360, s * Math.min(1, s1 / s0), Math.max(0, Math.min(100, l + LIFT)))];
   });
+  return { m: B.m, stops };
 }
-const deriveTag = (base, pal) => ({ ...TAG_FILLS[base], stops: shiftStops(TAG_FILLS[base].stops, PALETTES[base].gem.stops[0][1], pal.gem.stops[0][1]) });
 TAG_FILLS.bronze = deriveTag('gold', PALETTES.bronze);
 TAG_FILLS.ruby = deriveTag('purple', PALETTES.ruby);
 export const tagFill = (spec) => (spec.customColor ? deriveTag('purple', paletteFromColor(spec.customColor)) : TAG_FILLS[spec.rarity] || TAG_FILLS.silver);
@@ -1511,10 +1516,16 @@ export function tagSize(spec, opts = {}) {
   const tw = Math.ceil((opts.textWidth ?? tagTextWidth(tagLabel(spec, opts.label))) - 1e-6);
   return { w: TAG.slot + TAG.gap + 2 * TAG.pad + tw + TAG.padR + 2, h: TAG.h };
 }
+// where the label goes, in tag px at 1x: its text, left edge, cap top and baseline (for drawing it elsewhere)
+export function tagText(spec, opts = {}) {
+  const top = 1 + (TAG.pill - TAG.cap) / 2;
+  return { text: tagLabel(spec, opts.label), x: 1 + TAG.slot + TAG.gap + TAG.pad, top, base: top + TAG.cap, size: TAG.size, font: TAG_FONT };
+}
 
 // renderTag(spec, opts) -> SVG string. opts.label: other text than the badge name; opts.textWidth: the
 // label width in px if it is known; opts.bleed: px of room around the frame so the badge's spill is
-// not cut off in a standalone file (inline the SVG is overflow: visible); opts.scale; opts.background.
+// not cut off in a standalone file (inline the SVG is overflow: visible); opts.scale; opts.background;
+// opts.noText: no label (raster.js draws it on a canvas, where the page's fonts are available).
 export function renderTag(spec, opts = {}) {
   const id = 'ht' + (++UID).toString(36);
   const T = TAG, text = tagLabel(spec, opts.label);
@@ -1555,8 +1566,8 @@ export function renderTag(spec, opts = {}) {
     const inner = renderBadge(spec, { background: 'none', plateBase: T.plate, target: opts.target, facets: opts.facets });
     body.push(inner.replace(/^<svg [^>]*?(data-name="[^"]*")?>/, (_, nm) => `<svg x="${f(cx - T.icon / 2)}" y="${f(cy - T.icon / 2)}" width="${T.icon}" height="${T.icon}" viewBox="${vb.join(' ')}" overflow="visible" data-l="Badge"${nm ? ' ' + nm : ''}>`));
   }
-  // the label
-  {
+  // the label (noText: left out, for drawing it with another renderer, see raster.js)
+  if (!opts.noText) {
     const tg = `${id}t`, sh = `${id}s`, x = 1 + T.slot + T.gap + T.pad, top = 1 + (H - T.cap) / 2, base = top + T.cap;
     defs.push(`<linearGradient id="${tg}" x1="0" y1="${f(top)}" x2="0" y2="${f(base)}" gradientUnits="userSpaceOnUse"><stop stop-color="#D6D6D6"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient>`);
     defs.push(`<filter id="${sh}" x="-5%" y="-40%" width="110%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="0.5" stdDeviation="0.25" flood-color="#000000" flood-opacity="0.16"/></filter>`);

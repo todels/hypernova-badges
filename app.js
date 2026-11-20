@@ -4,6 +4,8 @@ import {
 } from './engine.js';
 import { FAMILIES, FIGMA_BADGES, NEW_BADGES, ALL_BADGES, FAMILY_SHAPES, SPARE_SHAPES, CLIMB, RARITY_COLOUR, RARITY_DOTS, LADDER_TOP, LEVEL_SHOWCASE, LEVEL_BANDS, levelBadge, bandOf, OPEN } from './catalog.js';
 import { GLYPH_SETS, placeGlyphs } from './presets.js';
+import { zip, download } from './zip.js';
+import { svgToPng, tagPng as rasterTag } from './raster.js';
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                              */
@@ -34,49 +36,6 @@ function toast(msg) {
   t.textContent = msg; t.classList.add('on');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1600);
 }
-function download(name, data, type) {
-  const blob = data instanceof Blob ? data : new Blob([data], { type });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
-async function svgToPng(svg, px, py = px) {
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-  const img = new Image();
-  img.src = url;
-  await img.decode();
-  const c = document.createElement('canvas');
-  c.width = px; c.height = py;
-  c.getContext('2d').drawImage(img, 0, 0, px, py);
-  URL.revokeObjectURL(url);
-  return new Promise((r) => c.toBlob(r, 'image/png'));
-}
-// minimal ZIP writer (store, no compression)
-const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-const crc32 = (b) => { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
-function zip(files) {
-  const enc = new TextEncoder(), chunks = [], central = [];
-  let off = 0;
-  for (const f of files) {
-    const name = enc.encode(f.name), data = f.data, crc = crc32(data);
-    const h = new DataView(new ArrayBuffer(30));
-    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(8, 0, true);
-    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
-    chunks.push(new Uint8Array(h.buffer), name, data);
-    const c = new DataView(new ArrayBuffer(46));
-    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
-    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
-    c.setUint16(28, name.length, true); c.setUint32(42, off, true);
-    central.push(new Uint8Array(c.buffer), name);
-    off += 30 + name.length + data.length;
-  }
-  const size = central.reduce((a, b) => a + b.length, 0);
-  const e = new DataView(new ArrayBuffer(22));
-  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
-  e.setUint32(12, size, true); e.setUint32(16, off, true);
-  return new Blob([...chunks, ...central, new Uint8Array(e.buffer)], { type: 'application/zip' });
-}
-
 /* ------------------------------------------------------------------ */
 /* data                                                                 */
 /* ------------------------------------------------------------------ */
@@ -199,10 +158,7 @@ const tagBase = () => tagPool().find((b) => b.id === S.tagSel) || ALL_BADGES[0];
 const tagSpec = () => { const b = tagBase(); return S.tagRar ? { ...b, rarity: S.tagRar, customColor: undefined } : b; };
 const tagOpts = (o = {}) => ({ label: S.tagLabel || undefined, ...o });
 const tagName = (b) => `tag_${(b.id || 'badge').replace(/[^\w-]+/g, '_')}`;
-async function tagPng(spec, k, o = {}) {
-  const { w, h } = tagSize(spec, o), b = TAG_BLEED;
-  return svgToPng(renderTag(spec, { ...o, scale: k, bleed: b }), (w + 2 * b) * k, (h + 2 * b) * k);
-}
+const tagPng = (spec, k, o = {}) => rasterTag(spec, k, o, TAG_BLEED);
 let TAG_GROUPS = [];
 function renderTags() {
   TAG_GROUPS = [];
@@ -242,7 +198,7 @@ function buildTagSide() {
     <div class="sec"><h3>Tag</h3>
       <label class="f"><span>Label</span><input type="text" id="tag-label" value="${esc(S.tagLabel)}" placeholder="${esc(base.name)}"></label>
       <label class="f"><span>Colour</span><select id="tag-rar"><option value="">Badge colour (${esc(paletteOf(base).label)})</option>${TIER_ORDER.map((k) => `<option value="${k}"${S.tagRar === k ? ' selected' : ''}>${esc(PALETTES[k].label)}</option>`).join('')}</select></label>
-      <div class="note">The pill takes the badge's colour: the same radial sweep as the Figma tags (silver, gold, purple from Figma; bronze and ruby derived the same way the badge palettes are).</div>
+      <div class="note">The pill takes the badge's colour: the same radial sweep as the Figma tags (silver, gold, purple from Figma; bronze and ruby derived from gold and purple, turned to the badge's hue and a little lighter so they match their badges).</div>
     </div>
     <div class="sec"><h3>Export</h3>
       <div class="actions">
@@ -911,7 +867,7 @@ function renderRules() {
     <div class="anat">${dotDemo}</div>
 
     <h2>Tags</h2>
-    <p>Every badge also comes as a tag: the badge at 28 px and its name in caps on a 20 px pill, in the badge's colour (Figma HyperNova 1010:75704). Frame 22 px with a 1 px black 48% border, pill radius 2 with a 0.387 px light edge and a radial sweep from the top right, label in PolySans Median 10 px with 4 px padding. The pill is 32 px plus the label. Silver, gold and purple pills are measured from Figma; bronze and ruby are derived from gold and purple with the badge palettes' own shift. See the Tags tab.</p>
+    <p>Every badge also comes as a tag: the badge at 28 px and its name in caps on a 20 px pill, in the badge's colour (Figma HyperNova 1010:75704). Frame 22 px with a 1 px black 48% border, pill radius 2 with a 0.387 px light edge and a radial sweep from the top right, label in PolySans Median 10 px with 4 px padding. The pill is 32 px plus the label. Silver, gold and purple pills are measured from Figma. Bronze and ruby are derived from gold and purple: every stop is turned so the brightest one has the badge gem's hue, saturation is kept at most the Figma pill's, and lightness goes up 6 with no black layer on top, so they read as light as their badges (ruby read as maroon before). See the Tags tab.</p>
     <div class="tagrow" style="--z:2;margin:10px 0">${['A_1', 'B_4', 'I_2', 'E_3', 'K_5'].map((id) => { const b = ALL_BADGES.find((x) => x.id === id); return `<div class="tagitem" style="--z:2">${renderTag(b, { scale: 2 })}<span>${esc(PALETTES[b.rarity].label)}</span></div>`; }).join('')}</div>
 
     <h2>Level badges</h2>
