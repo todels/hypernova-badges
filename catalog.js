@@ -188,12 +188,16 @@ export const FIGMA_BADGES = [
 export const FAMILY_SHAPES = { D: 'flower', E: 'seal', F: 'ushield', G: 'cushion', J: 'pennant', L: 'brilliant' };
 export const SPARE_SHAPES = ['octagon'];
 
-// Colours follow the Figma badges (A, B, C, H, I, K): a badge takes the colour its catalogue
-// rarity has there, common silver, rare blue, epic purple, legendary gold. Colours may repeat
-// inside a family, as in Figma (A is silver four times). Every family runs from the lowest rarity
-// to the highest, and the rarer the badge, the fuller its icon. Dots by rarity (see DOTS_BY_RARITY). Bronze and ruby are the level colours (with silver, gold and purple), not badge rarities.
+// Colours: the client's ladder (bronze, silver, gold, ruby, purple; the same order as the level
+// bands) on the catalogue rarities: common bronze, rare silver, epic gold, legendary ruby. Purple is
+// the top step of a ladder only (LADDER_TOP), whatever its catalogue rarity. Blue is gone. Colours may
+// repeat inside a family (A is bronze four times). Every family runs from the lowest rarity to the
+// highest, and the rarer the badge, the fuller its icon. Dots by rarity (see DOTS_BY_RARITY).
 export const CLIMB = ['bronze', 'silver', 'blue', 'gold', 'ruby', 'purple'];
-export const RARITY_COLOUR = { common: 'silver', rare: 'blue', epic: 'purple', legendary: 'gold' };
+export const RARITY_COLOUR = { common: 'bronze', rare: 'silver', epic: 'gold', legendary: 'ruby' };
+// the top step of each ladder (C_8 Whale is in the catalogue, not built yet); dots stay by rarity
+export const LADDER_TOP = ['B_7', 'C_8', 'D_5', 'E_4', 'H_3', 'I_3', 'K_5'];
+const colourOf = (id, rar) => (LADDER_TOP.includes(id) ? 'purple' : RARITY_COLOUR[rar]);
 export const RARITY_DOTS = { common: 2, rare: 3, epic: 4, legendary: 5 };
 // Rarity carries the colour and the frame (catalogue, node 418:6334: "identical geometry within a
 // class"), so the dots follow rarity on every badge: common 2, rare 3, epic 4, legendary 5.
@@ -213,7 +217,7 @@ for (const b of FIGMA_BADGES) {
   const rar = FIGMA_CATALOGUE[b.id[0]]?.[parseInt(b.id.slice(2), 10) - 1];
   if (!rar) continue;
   b.catalogue = rar;
-  b.rarity = b.id === 'K_5' ? b.rarity : RARITY_COLOUR[rar]; // B_4 $50M is rare: blue (was silver)
+  b.rarity = colourOf(b.id, rar);
   if (DOTS_BY_RARITY) b.level = RARITY_DOTS[rar];
 }
 
@@ -317,7 +321,7 @@ const NEW_FAMILIES = [
   ]],
 ];
 
-// colour by catalogue rarity (as in Figma); dots by rarity (DOTS_BY_RARITY), or step + 1 on ladders.
+// colour by catalogue rarity (purple on ladder tops); dots by rarity (DOTS_BY_RARITY), or step + 1 on ladders.
 // a side badge (E Comeback) takes its catalogue dots
 export const NEW_BADGES = NEW_FAMILIES.flatMap(([L, series, note, kind, list]) => {
   const ladder = list.filter(([, , , , x]) => !(x && x.side));
@@ -325,7 +329,7 @@ export const NEW_BADGES = NEW_FAMILIES.flatMap(([L, series, note, kind, list]) =
     const { side, colour, alt, ...rest } = extra;
     const step = ladder.indexOf(list[i]);
     const ladderStep = kind === 'ladder' && !side;
-    const rarity = colour || RARITY_COLOUR[rar];
+    const rarity = colour || colourOf(`${L}_${i + 1}`, rar);
     const level = ladderStep && !DOTS_BY_RARITY ? step + 2 : RARITY_DOTS[rar];
     const mk = (id, nm, gl, more = {}) => ({ ...B(id, nm, series, FAMILY_SHAPES[L], rarity, level, JSON.parse(JSON.stringify(gl)), { ...rest, ...more }), tag, catalogue: rar, familyNote: note });
     // alt: other designs for the same badge, shown next to it (id + b, c, d...) until you pick one;

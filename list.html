@@ -104,10 +104,11 @@ import { renderBadge } from './engine.js';
 import { ALL_BADGES, FAMILIES, LEVEL_SHOWCASE, bandOf } from './catalog.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-// rarity names and colours, as in the badge rule (common silver, rare blue, epic purple, legendary gold)
-const RARITY = { silver: 'Common', blue: 'Rare', purple: 'Epic', gold: 'Legendary', bronze: 'Bronze', ruby: 'Ruby' };
+// rarity names by colour (common bronze, rare silver, epic gold, legendary ruby, purple on ladder tops)
+const RARITY = { bronze: 'Common', silver: 'Rare', gold: 'Epic', ruby: 'Legendary', purple: 'Purple', blue: 'Blue' };
 const SWATCH = { silver: '#c9c9c9', blue: '#3b82ff', purple: '#9b5cff', gold: '#f2c230', bronze: '#d9773f', ruby: '#e8365d' };
 const CAT = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
+const COLOUR = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold', ruby: 'Ruby', purple: 'Purple' };
 
 const fams = [];
 for (const b of ALL_BADGES.filter((x) => x.kind !== 'level' && !String(x.id).startsWith('LV_'))) {
@@ -121,7 +122,7 @@ const label = (s) => s.replace(/^[A-Z]\.\s*/, '');
 const letter = (s) => s.match(/^([A-Z])\./)?.[1] || '';
 const cell = (b) => {
   const lv = String(b.id).startsWith('LV_');
-  const rar = lv ? `${RARITY[b.rarity]} band, ${bandOf(+b.id.slice(3)).from} to ${bandOf(+b.id.slice(3)).to}` : (CAT[b.catalogue] || RARITY[b.rarity] || '');
+  const rar = lv ? `${COLOUR[b.rarity]} band, ${bandOf(+b.id.slice(3)).from} to ${bandOf(+b.id.slice(3)).to}` : (CAT[b.catalogue] || RARITY[b.rarity] || '');
   const tag = lv ? '' : b.tag ? ` · ${esc(b.tag)}` : '';
   const alt = /b$/.test(b.id) ? '<span class="alt">Option B</span>' : '';
   return `<div class="cell">
@@ -140,7 +141,7 @@ document.getElementById('list').innerHTML = fams.map((f, i) => `
       <span class="meta">${esc(f.shape)}${f.note ? ` · ${esc(f.note)}` : ''}</span>
       <span class="count">${f.list.length} badge${f.list.length === 1 ? '' : 's'}</span></div>
     <div class="grid">${f.list.map(cell).join('')}</div>
-  </section>`).join('') + `<div class="foot">Rarity: common silver, rare blue, epic purple, legendary gold. Dots show rarity: common 2, rare 3, epic 4, legendary 5. Level badges show a sample of levels.</div>`;
+  </section>`).join('') + `<div class="foot">Rarity: common bronze, rare silver, epic gold, legendary ruby, and purple for the top step of a ladder. Dots show rarity: common 2, rare 3, epic 4, legendary 5. Level badges show a sample of levels.</div>`;
 
 const total = fams.reduce((n, f) => n + f.list.length, 0);
 document.getElementById('sum').innerHTML = `<b>${total}</b> badges in <b>${fams.length}</b> families, lowest to rarest in each`;
