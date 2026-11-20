@@ -247,6 +247,37 @@ export const SHAPES = {
       pts: [[0, 0, r], [w / 2, head * h, r], [(shaft * w) / 2, head * h], [(shaft * w) / 2, h, r], [0, h]],
     }),
   },
+  // V: two arms of thickness t meeting at a point (G_7 Comeback Kid, the dip and the climb back)
+  vee: {
+    label: 'V', kind: 'glyph',
+    params: { t: 9, r: 2, tip: 3 },
+    gen: (w, h, { t = 9, r = 2, tip = 3 }) => {
+      const L = Math.hypot(w / 2, h);
+      return { pts: [[0, h - (t * L) / (w / 2), r / 2], [w / 2 - (t * L) / h, 0, r], [w / 2, 0, r], [0, h, tip]], fit: true };
+    },
+  },
+  // pulse: a heartbeat line of thickness t, flat, a dip, the spike up on the axis, a dip, flat (G_8 Lazarus).
+  // sx: where the spike reaches its dip, bx: where the line is back on the baseline, by: baseline height
+  pulse: {
+    label: 'Pulse', kind: 'glyph',
+    params: { t: 5, sx: 0.3, bx: 0.52, by: 0.66, r: 1.5 },
+    gen: (w, h, { t = 5, sx = 0.3, bx = 0.52, by = 0.66, r = 1.5 }) => {
+      const w2 = w / 2, C = [[0, 0], [sx * w2, h], [bx * w2, by * h], [w2, by * h]];
+      const N = C.slice(1).map((p, i) => { const d = norm(sub(p, C[i])); return [d[1], -d[0]]; });
+      const off = (i, s) => add(C[i], mul(N[i], (s * t) / 2));
+      // offset line i on side s meets offset line j: intersection of two parametric lines
+      const meet = (i, s) => {
+        const a = off(i, s), b = off(i + 1, s), da = sub(C[i + 1], C[i]), db = sub(C[i + 2], C[i + 1]);
+        const den = da[0] * db[1] - da[1] * db[0];
+        const u = ((b[0] - a[0]) * db[1] - (b[1] - a[1]) * db[0]) / den;
+        return add(a, mul(da, u));
+      };
+      const onAxis = (s) => { const a = off(0, s), d = sub(C[1], C[0]); return [0, a[1] - (a[0] * d[1]) / d[0]]; };
+      const end = (s) => add(C[3], mul(N[2], (s * t) / 2));
+      const pts = [[...onAxis(1), r], [...meet(0, 1), r / 2], [...meet(1, 1), r], [...end(1), r / 2], [...end(-1), r / 2], [...meet(1, -1), r / 2], [...meet(0, -1), r], [...onAxis(-1)]];
+      return { pts, fit: true };
+    },
+  },
   heart: {
     label: 'Heart', kind: 'glyph', ref: [26, 23],
     half: P('M0 5.2 C1.6 1.9 4.4 0 7.4 0 C10.9 0 13 2.8 13 6.6 C13 12.6 6.6 17.8 0 23'),
@@ -806,12 +837,12 @@ export function renderBadge(spec, opts = {}) {
   // bevel stroke: 1px, black (top) to white (bottom), overlay. inside or outside the shape.
   // span: where the black-to-white bevel gradient starts and ends, as fractions of the box height;
   // w: visible width in px (the stroke is twice as wide, half of it clipped away)
-  const bevel = (d, box, where = 'inside', lift = 0, a = '', span = [-lift, 1 - lift], w = 1) => {
+  const bevel = (d, box, where = 'inside', lift = 0, a = '', span = [-lift, 1 - lift], w = 1, sd = d) => {
     const cid = nid('c'), gidd = nid('g');
     defs.push(linGrad(gidd, box, [0.5, span[0]], [0.5, span[1]], bevelStops));
     if (where === 'inside') defs.push(`<clipPath id="${cid}"><path d="${d}"/></clipPath>`);
     else defs.push(`<clipPath id="${cid}"><path d="M-10 -10H${SIZE + 10}V${SIZE + 10}H-10Z${d}" clip-rule="evenodd" fill-rule="evenodd"/></clipPath>`);
-    body.push(`<path d="${d}" fill="none" stroke="url(#${gidd})" stroke-width="${2 * w}" clip-path="url(#${cid})" style="mix-blend-mode:overlay"${a}/>`);
+    body.push(`<path d="${sd}" fill="none" stroke="url(#${gidd})" stroke-width="${2 * w}" clip-path="url(#${cid})" style="mix-blend-mode:overlay"${a}/>`);
   };
 
   // ---- plate
@@ -935,6 +966,21 @@ export function renderBadge(spec, opts = {}) {
       }
       // bevel: outside by default; 'inside' keeps the edge within the glyph (Figma D_3); bevelW: width in px (G_5: 2)
       if (g.bevel !== false) bevel(d, box, g.bevel === 'inside' ? 'inside' : 'outside', light.lift, A, light.bevel, g.bevelW ?? 1);
+      // facet: the gem's split continues through the glyph (darker left half, or lighter right half)
+      const fc = opts.facets === false ? null : facetOf(g, spec, pal);
+      const hd = fc && halfOfPath(d, fc.side, !!g.evenodd);
+      if (hd) {
+        const F = layer(fc.side === 'left' ? 'Left facet' : 'Right light');
+        body.push(`<path d="${hd.d}" fill="${fc.color}" fill-opacity="${fc.alpha}"${g.evenodd ? ' fill-rule="evenodd"' : ''}${blendStyle(fc.blend)}${F}/>`);
+        if (fc.bevel === 'axis' && g.bevel !== false) {
+          // the seam: the half's outside bevel along the axis, as its own strip (w px on the far side of
+          // the axis, the bevel gradient, overlay), so it pastes into Figma as a plain filled layer
+          const w = g.bevelW ?? 1, x0 = fc.side === 'left' ? CX : CX - w, sg = nid('g');
+          defs.push(linGrad(sg, box, [0.5, (light.bevel || [-light.lift, 1 - light.lift])[0]], [0.5, (light.bevel || [-light.lift, 1 - light.lift])[1]], bevelStops));
+          const sd = hd.axisRuns.map(([a, b]) => `M${f(x0)} ${f(a)}H${f(x0 + w)}V${f(b)}H${f(x0)}Z`).join('');
+          if (sd) body.push(`<path d="${sd}" fill="url(#${sg})" style="mix-blend-mode:overlay"${layer('Facet seam')}/>`);
+        } else if (fc.bevel && g.bevel !== false) bevel(hd.d, box, 'outside', light.lift, F, light.bevel, g.bevelW ?? 1);
+      }
     }
   }
 
@@ -1017,6 +1063,14 @@ export function glyphGeometry(g, x = 0) {
   if (g.text != null) return textGeometry(g, x);
   const parts = g.parts || [{ ...g, x: 0 }];
   const ds = [], boxes = [];
+  // a compound's rot turns all its parts together around the compound's centre (a part's own rot
+  // turns it around its own centre)
+  let pivot = null;
+  if (g.parts && g.rot) {
+    const bs = parts.map((p) => boxOf({ ...p, x: (p.x || 0) + x }));
+    const x0 = Math.min(...bs.map((b) => b.x)), y0 = Math.min(...bs.map((b) => b.y));
+    pivot = [(x0 + Math.max(...bs.map((b) => b.x + b.w))) / 2, (y0 + Math.max(...bs.map((b) => b.y + b.h))) / 2];
+  }
   for (const p of parts) {
     const box = boxOf({ ...p, x: (p.x || 0) + x });
     const d = shapePaths(p.shape, box, p.params).full;
@@ -1024,7 +1078,7 @@ export function glyphGeometry(g, x = 0) {
     const rot = p.rot ?? g.rot;
     if (rot) {
       const a = ((x < 0 ? -rot : rot) * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
-      const ox = box.x + box.w / 2, oy = box.y + box.h / 2;
+      const [ox, oy] = p.rot == null && pivot ? pivot : [box.x + box.w / 2, box.y + box.h / 2];
       const R = (px, py) => [ox + (px - ox) * c - (py - oy) * s, oy + (px - ox) * s + (py - oy) * c];
       ds.push(d.replace(/(-?\d*\.?\d+) (-?\d*\.?\d+)/g, (m, px, py) => R(+px, +py).map((v) => +v.toFixed(3)).join(' ')));
       const cs = [[box.x, box.y], [box.x + box.w, box.y], [box.x, box.y + box.h], [box.x + box.w, box.y + box.h]].map(([px, py]) => R(px, py));
@@ -1039,6 +1093,127 @@ export function glyphGeometry(g, x = 0) {
   const x1 = Math.max(...boxes.map((b) => b.x + b.w)), y1 = Math.max(...boxes.map((b) => b.y + b.h));
   return { d: ds.join(''), box: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } };
 }
+
+// The part of a path on one side of the badge axis (x = 75). Curves are split where they cross the
+// axis; pieces on the far side become the axis line between their ends (Sutherland-Hodgman on curves).
+// A centred glyph gives its left (or right) half; of a mirrored pair, only the member on that side.
+export function halfOfPath(d, side = 'left', evenodd = false, ax = CX) {
+  const t = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) || [];
+  const subs = [];
+  let cur = null, i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0;
+  const n = () => +t[i++];
+  while (i < t.length) {
+    if (/[a-zA-Z]/.test(t[i])) cmd = t[i++];
+    if (cmd === 'Z' || cmd === 'z') { if (cur && (x !== sx || y !== sy)) cur.push({ a: [x, y], p: [sx, sy] }); x = sx; y = sy; cur = null; continue; }
+    if (cmd === 'M') { x = n(); y = n(); sx = x; sy = y; cur = []; subs.push(cur); cmd = 'L'; continue; }
+    if (!cur) { cur = []; subs.push(cur); sx = x; sy = y; }
+    const a = [x, y];
+    if (cmd === 'L') { x = n(); y = n(); cur.push({ a, p: [x, y] }); }
+    else if (cmd === 'H') { x = n(); cur.push({ a, p: [x, y] }); }
+    else if (cmd === 'V') { y = n(); cur.push({ a, p: [x, y] }); }
+    else if (cmd === 'C') { const c1 = [n(), n()], c2 = [n(), n()]; x = n(); y = n(); cur.push({ a, c1, c2, p: [x, y] }); }
+    else if (cmd === 'Q') { const q = [n(), n()]; x = n(); y = n(); cur.push({ a, c1: lerp(a, q, 2 / 3), c2: lerp([x, y], q, 2 / 3), p: [x, y] }); }
+    else throw new Error('halfOfPath: ' + cmd);
+  }
+  const sgn = side === 'left' ? -1 : 1;
+  const inside = (px) => sgn * (px - ax) >= -1e-6;
+  const xAt = (s, u) => (s.c1 ? (1 - u) ** 3 * s.a[0] + 3 * (1 - u) ** 2 * u * s.c1[0] + 3 * (1 - u) * u * u * s.c2[0] + u ** 3 * s.p[0] : s.a[0] + (s.p[0] - s.a[0]) * u);
+  // split a segment at every crossing of the axis
+  const pieces = (s) => {
+    const roots = [];
+    if (!s.c1) { const dx = s.p[0] - s.a[0]; if (dx) { const u = (ax - s.a[0]) / dx; if (u > 1e-6 && u < 1 - 1e-6) roots.push(u); } }
+    else {
+      const N = 48;
+      let u0 = 0, v0 = xAt(s, 0) - ax;
+      for (let k = 1; k <= N; k++) {
+        const u1 = k / N, v1 = xAt(s, u1) - ax;
+        if ((v0 < 0 && v1 > 0) || (v0 > 0 && v1 < 0)) {
+          let lo = u0, hi = u1;
+          for (let it = 0; it < 40; it++) { const m = (lo + hi) / 2; ((xAt(s, m) - ax) * v0 > 0) ? (lo = m) : (hi = m); }
+          const u = (lo + hi) / 2; if (u > 1e-6 && u < 1 - 1e-6) roots.push(u);
+        }
+        u0 = u1; v0 = v1;
+      }
+    }
+    if (!roots.length) return [s];
+    const out = [];
+    let rest = s, used = 0;
+    for (const u of roots) {
+      const uu = (u - used) / (1 - used);
+      if (!rest.c1) { const m = lerp(rest.a, rest.p, uu); m[0] = ax; out.push({ a: rest.a, p: m }); rest = { a: m, p: rest.p }; }
+      else {
+        const [A, B] = splitCubic(rest.a, rest.c1, rest.c2, rest.p, uu);
+        A[3][0] = ax; B[0][0] = ax;
+        out.push({ a: A[0], c1: A[1], c2: A[2], p: A[3] }); rest = { a: B[0], c1: B[1], c2: B[2], p: B[3] };
+      }
+      used = u;
+    }
+    out.push(rest);
+    return out;
+  };
+  const P = (p) => `${f(p[0])} ${f(p[1])}`;
+  // d: closed outline for the fill. edge: the outline to stroke (bevel): the kept curves, plus the axis
+  // only where it is a real border (odd coverage for evenodd rings, union otherwise), so a ring's
+  // hole gets no seam
+  let d2 = '', edge = '', axisEdge = '';
+  const runs = [];
+  for (const sub0 of subs) {
+    const segs = sub0.flatMap(pieces);
+    if (!segs.length) continue;
+    const mid = (s) => (s.c1 ? xAt(s, 0.5) : (s.a[0] + s.p[0]) / 2);
+    if (!segs.some((s) => inside(mid(s)))) continue;
+    const clamp = (p) => (inside(p[0]) ? p : [ax, p[1]]);
+    let out = `M${P(clamp(segs[0].a))}`, open = false;
+    for (const s of segs) {
+      const seg = s.c1 ? `C${P(s.c1)} ${P(s.c2)} ${P(s.p)}` : `L${P(s.p)}`;
+      if (inside(mid(s))) {
+        out += seg;
+        edge += (open ? '' : `M${P(s.a)}`) + seg; open = true;
+      } else {
+        const a = clamp(s.a), b = clamp(s.p);
+        out += `L${P(b)}`;
+        if (Math.abs(a[1] - b[1]) > 1e-6) runs.push([Math.min(a[1], b[1]), Math.max(a[1], b[1])]);
+        open = false;
+      }
+    }
+    d2 += out + 'Z';
+  }
+  const ys = [...new Set(runs.flat())].sort((a, b) => a - b);
+  const axisRuns = [];
+  let run = null;
+  for (let k = 0; k < ys.length - 1; k++) {
+    const y0 = ys[k], y1 = ys[k + 1], m = (y0 + y1) / 2;
+    const c = runs.filter(([a, b]) => a <= m && m <= b).length;
+    if (evenodd ? c % 2 : c > 0) { if (run) run[1] = y1; else axisRuns.push((run = [y0, y1])); }
+    else run = null;
+  }
+  for (const [a, b] of axisRuns) axisEdge += `M${f(ax)} ${f(a)}V${f(b)}`;
+  return d2 ? { d: d2, edge: edge + axisEdge, axisEdge, axisRuns } : null;
+}
+
+// facet: the gem's left/right split carried through a glyph (Figma G_2: a copy of the left half,
+// black at the glyph's own opacity, with its own outside bevel). 'left' = a darker left half,
+// 'right' = a lighter right half, false = none, or { side, color, alpha, blend, bevel }. The bevel runs
+// along the axis only (bevel: true also doubles the glyph's own edge, which turns red on gold).
+export const FACETS = {
+  left: { side: 'left', color: '#000000', blend: 'normal', bevel: 'axis' },
+  right: { side: 'right', color: '#FFFFFF', blend: 'overlay', alpha: 0.5, bevel: false },
+};
+// glass on the light metals takes the darker left half; on the colours a lighter right half (black
+// over glass on blue or purple reads grey, white reads clean)
+export const GLASS_FACET = { silver: 'left', gold: 'left', bronze: 'left', blue: 'right', purple: 'right', ruby: 'right' };
+export function facetOf(g, spec = {}, pal = null) {
+  const style = g.style || 'glass';
+  if (style === 'inlay' || style === 'solid') return null;
+  let v = g.facet;
+  if (v === undefined) v = style === 'recess' ? 'left' : (spec.glassFacet ?? GLASS_FACET[spec.customColor ? '' : spec.gem?.bezel?.stone || spec.gem?.rarity || spec.rarity] ?? 'left');
+  if (!v) return null;
+  const base = FACETS[typeof v === 'string' ? v : v.side || 'left'];
+  const o = { ...base, ...(typeof v === 'object' ? v : {}) };
+  if (o.alpha == null) o.alpha = style === 'recess' ? (g.alpha ?? 0.49) : GLASS_FACET_ALPHA;
+  return o;
+}
+export const GLASS_FACET_ALPHA = 0.2;
 
 /* ------------------------------------------------------------------ */
 /* Derived outlines: plate grown around the gem, recess shrunk inside it */

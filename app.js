@@ -250,19 +250,25 @@ function lightSel(p, g, o = {}) {
   const custom = !!g.light && typeof g.light === 'object';
   return sel('Light', `${p}.light`, custom ? [['custom', 'Custom (Figma)'], ...opts] : opts, custom ? { ...o, value: 'custom' } : o);
 }
+// facet: the gem's split through the glyph (auto: recess darker left; glass darker left on silver and
+// gold, lighter right on blue, purple and ruby)
+function facetSel(p, g) {
+  const v = g.facet === false ? 'none' : g.facet == null ? 'auto' : typeof g.facet === 'object' ? g.facet.side || 'left' : g.facet;
+  return sel('Facet', `${p}.facet`, [['auto', 'Auto'], ['left', 'Darker left'], ['right', 'Lighter right'], ['none', 'None']], { rebuild: false, value: v });
+}
 function glyphCard(g, i) {
   const p = `glyphs.${i}`;
   const st = g.style || 'glass';
   if (g.parts) {
     return `<div class="glyph"><div class="gh">${i + 1}. Compound (${g.parts.length} parts)<span class="spacer"></span>${gButtons(i)}</div>
-      <div class="row r2">${sel('Style', `${p}.style`, STYLES)}${lightSel(p, g)}</div>
+      <div class="row r3">${sel('Style', `${p}.style`, STYLES)}${lightSel(p, g)}${facetSel(p, g)}</div>
       <div class="note">Compound glyphs share one glass gradient and one bevel. Edit their parts in the JSON panel.</div></div>`;
   }
   if (g.text != null) {
     return `<div class="glyph"><div class="gh">${i + 1}. Number<span class="spacer"></span>${gButtons(i)}</div>
       <div class="row r3"><label class="f"><span>Text (digits)</span><input type="text" data-path="${p}.text" value="${esc(g.text)}"></label>${sel('Font', `${p}.font`, [['wide', 'PolySans Bulky Wide'], ['bulky', 'PolySans Bulky']], { rebuild: false })}${sel('Style', `${p}.style`, STYLES.filter(([k]) => k !== 'inlay'))}</div>
       <div class="row">${num('Cap height', `${p}.h`)}${num('Top', `${p}.y`)}${num('Tracking', `${p}.track`, { ph: -24 })}${num('Opacity', `${p}.alpha`, { step: 0.01, ph: st === 'recess' ? 0.49 : 1 })}</div>
-      <div class="row r2">${lightSel(p, g, { rebuild: false })}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div></div>`;
+      <div class="row r3">${lightSel(p, g, { rebuild: false })}${facetSel(p, g)}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div></div>`;
   }
   let styleFields = '';
   if (st === 'recess') styleFields = `<div class="row r2">${num('Opacity', `${p}.alpha`, { step: 0.01, ph: 0.49 })}${sel('Blend', `${p}.blend`, BLENDS, { rebuild: false })}</div>`;
@@ -273,7 +279,7 @@ function glyphCard(g, i) {
     <div class="gh">${i + 1}. ${esc(allShapes()[g.shape]?.label || g.shape)}<span class="spacer"></span>${gButtons(i)}</div>
     <div class="row r2">${sel('Shape', `${p}.shape`, shapeOptions(), { act: 'shape' })}${sel('Style', `${p}.style`, STYLES)}</div>
     <div class="row">${num('W', `${p}.w`)}${num('H', `${p}.h`)}${num('Top', `${p}.y`)}${num('Pair x', `${p}.x`, { ph: 'none' })}</div>
-    ${st !== 'inlay' ? `<div class="row r2">${lightSel(p, g, { rebuild: false })}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div>` : ''}
+    ${st !== 'inlay' ? `<div class="row r3">${lightSel(p, g, { rebuild: false })}${st !== 'solid' ? facetSel(p, g) : ''}${chk('Bevel', `${p}.bevel`, { act: 'bevel', checked: g.bevel !== false })}</div>` : ''}
     ${styleFields}
     ${paramFields(p, g.shape)}
   </div>`;
@@ -396,8 +402,8 @@ function applyInput(el) {
   let v;
   if (el.type === 'number' || el.type === 'range') v = el.value === '' ? undefined : +el.value;
   else v = el.value;
-  if (v === undefined || v === '' || (path.endsWith('dotPhase') && v === 'auto') || (path.endsWith('.blend') && v === 'normal')) delPath(S.spec, path);
-  else setPath(S.spec, path, v);
+  if (v === undefined || v === '' || (path.endsWith('dotPhase') && v === 'auto') || (path.endsWith('.blend') && v === 'normal') || (path.endsWith('.facet') && v === 'auto')) delPath(S.spec, path);
+  else setPath(S.spec, path, path.endsWith('.facet') && v === 'none' ? false : v);
   refresh();
 }
 ctrl.addEventListener('input', (e) => { const el = e.target; if (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'color') return; applyInput(el); });
@@ -761,6 +767,7 @@ function renderRules() {
       <li><b>Gem</b>: a 3 stop linear gradient (dark, light at 41%, dark) plus the same inside bevel.</li>
       <li><b>Left facet</b>: the left half of the gem gets the palette's shading recipe and its own bevel. That bevel is what draws the centre line.</li>
       <li><b>Glyphs</b>: glass (white gradient that goes clear in the middle) or recess (black at 21 or 49%). Glyphs get a 1 px bevel on the outside.</li>
+      <li><b>Glyph facet</b>: the gem's split carries on through every glyph (Figma G_2). Recess glyphs get a copy of their left half in black at the same opacity, with a 1 px seam (the bevel) just right of the centre line. Glass glyphs get the same darker left half (black 20%) on silver, gold and bronze, and a lighter right half (white 50% Overlay) on blue, purple and ruby. Per glyph: Facet in the Editor.</li>
       <li><b>Dots and ornaments</b>: 2 x 2 white level dots, optional top bar, bottom chevron line and side arrows.</li>
     </ol>
     <div class="callout"><b>The bevel</b> is one rule used everywhere: a 1 px line, black at the top to white at the bottom, in Overlay. It sits inside plates and gems and outside glyphs.</div>

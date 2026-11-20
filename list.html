@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hypernova badges</title>
+<meta name="description" content="Every Hypernova badge, by family.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* HyperNova UI tokens (Figma HyperNova, node 591:74416) */
+  :root {
+    --page: #191919; --frame: #131313; --panel: #1f1f1f; --elevated: #292929;
+    --stroke: rgba(255, 255, 255, 0.12); --muted: rgba(255, 255, 255, 0.04);
+    --text: #ffffff; --text-2: #bbbbba; --accent: #8c47dc; --accent-light: #c592ff;
+    --tab: rgba(255, 255, 255, 0.04); --tab-on: rgba(255, 255, 255, 0.16);
+    --radius: 2px; --pad: 64px;
+    --font: "PolySans Trial", "PolySans", "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--text); font: 400 13px/16px var(--font); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+
+  /* top bar */
+  .top { position: sticky; top: 0; z-index: 5; height: 40px; display: flex; align-items: center; gap: 16px; padding: 0 12px 0 16px;
+    background: var(--frame); border-bottom: 1px solid var(--stroke); }
+  .top .brand { font-size: 13px; white-space: nowrap; }
+  .top .brand span { color: var(--text-2); }
+  .tabs { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { height: 32px; display: flex; align-items: center; padding: 0 10px; border-radius: var(--radius); background: var(--tab);
+    color: var(--text-2); font-size: 12px; white-space: nowrap; }
+  .tabs a:hover, .tabs a.on { background: var(--tab-on); color: var(--text); }
+
+  /* page frame: padding columns and hairline dividers, as in the app */
+  .page { display: grid; grid-template-columns: var(--pad) minmax(0, 1fr) var(--pad); }
+  .page > .gut { border-right: 1px solid var(--muted); }
+  .page > .gut:last-child { border-right: 0; border-left: 1px solid var(--muted); }
+  .head { padding: 32px 16px 16px; border-bottom: 1px solid var(--muted); }
+  .head h1 { margin: 0 0 6px; font-size: 26px; line-height: 32px; font-weight: 400; }
+  .head p { margin: 0; font-size: 12px; color: var(--text-2); }
+  .head p b { font-weight: 400; color: var(--text); }
+  .body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* panel with corner brackets */
+  .panel { position: relative; background: var(--panel); outline: 1px solid var(--muted); outline-offset: -1px; padding: 24px; scroll-margin-top: 56px; }
+  .panel::before, .panel::after, .panel > .c1, .panel > .c2 { content: ""; position: absolute; width: 3px; height: 3px; border: 0 solid var(--text-2); }
+  .panel::before { left: -1px; top: -1px; border-left-width: 1px; border-top-width: 1px; }
+  .panel::after { right: -1px; top: -1px; border-right-width: 1px; border-top-width: 1px; }
+  .panel > .c1 { left: -1px; bottom: -1px; border-left-width: 1px; border-bottom-width: 1px; }
+  .panel > .c2 { right: -1px; bottom: -1px; border-right-width: 1px; border-bottom-width: 1px; }
+  .ph { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+  .ph .n { color: var(--accent-light); font-size: 13px; }
+  .ph h2 { margin: 0; font-size: 20px; line-height: 24px; font-weight: 400; }
+  .ph .meta { color: var(--text-2); font-size: 12px; }
+  .ph .count { margin-left: auto; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+
+  /* badges */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); gap: 8px; }
+  .cell { background: var(--frame); outline: 1px solid var(--muted); outline-offset: -1px; padding: 0 0 12px; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .tile { width: 100%; display: flex; justify-content: center; background: #000; }
+  .tile svg { display: block; width: 150px; height: 150px; }
+  .cap { width: 100%; padding: 10px 12px 0; display: flex; flex-direction: column; gap: 6px; }
+  .cap .row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .cap .id { color: var(--text-2); font-size: 10px; line-height: 12px; }
+  .cap .alt { margin-left: auto; color: var(--accent-light); font-size: 10px; line-height: 12px; }
+  .cap .name { font-size: 13px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap .tag { color: var(--text-2); font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 6px; height: 6px; flex: none; }
+
+  .foot { padding: 8px 0 24px; color: var(--text-2); font-size: 12px; }
+
+  @media (max-width: 860px) {
+    .page { grid-template-columns: 16px minmax(0, 1fr) 16px; }
+    .body { padding: 16px 0; }
+    .head { padding: 24px 0 16px; }
+    .panel { padding: 16px; }
+    .ph { flex-wrap: wrap; row-gap: 4px; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tile svg { width: 100%; max-width: 150px; height: auto; }
+    .top .tabs { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Hypernova <span>/ Badges</span></div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<div class="page">
+  <div class="gut"></div>
+  <main>
+    <div class="head">
+      <h1>Badges</h1>
+      <p id="sum"></p>
+    </div>
+    <div class="body" id="list"></div>
+  </main>
+  <div class="gut"></div>
+</div>
+<script type="module">
+import { renderBadge } from './engine.js';
+import { ALL_BADGES, FAMILIES, LEVEL_SHOWCASE, bandOf } from './catalog.js';
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+// rarity names and colours, as in the badge rule (common silver, rare blue, epic purple, legendary gold)
+const RARITY = { silver: 'Common', blue: 'Rare', purple: 'Epic', gold: 'Legendary', bronze: 'Bronze', ruby: 'Ruby' };
+const SWATCH = { silver: '#c9c9c9', blue: '#3b82ff', purple: '#9b5cff', gold: '#f2c230', bronze: '#d9773f', ruby: '#e8365d' };
+const CAT = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
+
+const fams = [];
+for (const b of ALL_BADGES.filter((x) => x.kind !== 'level' && !String(x.id).startsWith('LV_'))) {
+  let f = fams.find((x) => x.series === b.series);
+  if (!f) fams.push((f = { series: b.series, shape: FAMILIES[b.family]?.label || '', note: b.familyNote || '', list: [] }));
+  f.list.push(b);
+}
+fams.push({ series: 'L. Levels', shape: 'Brilliant', note: 'one colour band per level range, the number engraved or in glass', list: LEVEL_SHOWCASE });
+
+const label = (s) => s.replace(/^[A-Z]\.\s*/, '');
+const letter = (s) => s.match(/^([A-Z])\./)?.[1] || '';
+const cell = (b) => {
+  const lv = String(b.id).startsWith('LV_');
+  const rar = lv ? `${RARITY[b.rarity]} band, ${bandOf(+b.id.slice(3)).from} to ${bandOf(+b.id.slice(3)).to}` : (CAT[b.catalogue] || RARITY[b.rarity] || '');
+  const tag = lv ? '' : b.tag ? ` · ${esc(b.tag)}` : '';
+  const alt = /b$/.test(b.id) ? '<span class="alt">Option B</span>' : '';
+  return `<div class="cell">
+    <div class="tile">${renderBadge(b)}</div>
+    <div class="cap">
+      <div class="row"><span class="id">${esc(b.id.replace('_', ' '))}</span>${alt}</div>
+      <div class="name" title="${esc(b.name)}">${esc(b.name.replace(/ \(alt\)$/, ''))}</div>
+      <div class="row tag"><i class="dot" style="background:${SWATCH[b.rarity] || '#bbb'}"></i>${esc(rar)}${tag}</div>
+    </div>
+  </div>`;
+};
+
+document.getElementById('list').innerHTML = fams.map((f, i) => `
+  <section class="panel" id="f-${letter(f.series) || 'L'}"><i class="c1"></i><i class="c2"></i>
+    <div class="ph"><span class="n">${String(i + 1).padStart(2, '0')}</span><h2>${esc(label(f.series))}</h2>
+      <span class="meta">${esc(f.shape)}${f.note ? ` · ${esc(f.note)}` : ''}</span>
+      <span class="count">${f.list.length} badge${f.list.length === 1 ? '' : 's'}</span></div>
+    <div class="grid">${f.list.map(cell).join('')}</div>
+  </section>`).join('') + `<div class="foot">Rarity: common silver, rare blue, epic purple, legendary gold. Dots show the step or rarity. Level badges show a sample of levels.</div>`;
+
+const total = fams.reduce((n, f) => n + f.list.length, 0);
+document.getElementById('sum').innerHTML = `<b>${total}</b> badges in <b>${fams.length}</b> families, lowest to rarest in each`;
+document.getElementById('tabs').innerHTML = fams.map((f) => `<a href="#f-${letter(f.series) || 'L'}">${esc(letter(f.series) || 'L')}. ${esc(label(f.series).split(' ')[0])}</a>`).join('');
+</script>
+</body>
+</html>
