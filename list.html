@@ -27,11 +27,8 @@
     background: var(--frame); border-bottom: 1px solid var(--stroke); }
   .top .brand { font-size: 13px; white-space: nowrap; }
   .top .brand span { color: var(--text-2); }
-  .tabs { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tabs a { height: 32px; display: flex; align-items: center; padding: 0 10px; border-radius: var(--radius); background: var(--tab);
-    color: var(--text-2); font-size: 12px; white-space: nowrap; }
-  .tabs a:hover, .tabs a.on { background: var(--tab-on); color: var(--text); }
+  .top .toplink { margin-left: auto; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+  .top .toplink:hover { color: var(--text); }
 
   /* page frame: padding columns and hairline dividers, as in the app */
   .page { display: grid; grid-template-columns: var(--pad) minmax(0, 1fr) var(--pad); }
@@ -110,15 +107,13 @@
     .ph { flex-wrap: wrap; row-gap: 4px; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .tile svg { width: 100%; max-width: 150px; height: auto; }
-    .top .tabs { display: none; }
-    .top .dl { margin-left: auto; }
   }
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand">Hypernova <span>/ Badges</span></div>
-  <nav class="tabs" id="tabs"></nav>
+  <a class="toplink" href="#rules">Rules</a>
   <button class="dl" id="dl" title="Every badge and tag as SVG and PNG, plus Figma-ready files">Download all (ZIP)</button>
 </header>
 <div class="page">
@@ -259,7 +254,6 @@ document.getElementById('sum').innerHTML = `<b>${total}</b> badges in <b>${fams.
   document.querySelectorAll('.tagwrap').forEach((el) => { el.innerHTML = fams[+el.dataset.fam].list.map((b) => renderTag(b)).join(''); });
   document.getElementById('rule-tags').innerHTML = LADDER.map((k) => renderTag(ALL_BADGES.find((b) => b.id === sample[k]), { scale: 2 })).join('');
 })();
-document.getElementById('tabs').innerHTML = fams.map((f) => `<a href="#f-${letter(f.series) || 'L'}">${esc(letter(f.series) || 'L')}. ${esc(label(f.series).split(' ')[0])}</a>`).join('') + '<a href="#rules">Rules</a>';
 
 // ---- download everything: badges and tags as SVG and PNG, Figma-ready files for the plugin, and the specs
 const slug = (b) => `${b.id}-${String(b.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
