@@ -227,18 +227,10 @@ const PETALS6 = { n: 6, top: 'gap', ring: 0.6, size: 0.33, core: 0.46, k: 0.05 }
 // pennant: the base outline, its notch cut deeper so it still reads small
 const flag = (w, c, style = 'glass', more = {}) => sz('banner', w, Math.round(w * 1.08), c, { notch: 0.26, r: w / 8 }, style, more);
 
-// rounded bar (shield with the knee at the bottom = a rounded rectangle)
-const bar = (w, h, r) => ({ corner: r, knee: 1, r });
-// G_7 Comeback Kid: a glass V (the dip and the climb back) with a recessed ball resting in its low point
-const COMEBACK_V = [at('vee', 46, 30, 60, { t: 8 }), at('oval', 6, 6, 69, null, 'recess', { alpha: 0.49 })];
-// G_7b: a recessed pit (a true ellipse) with a glass gem rising out of it, its tip still in the hole
-const ELLIPSE = { n: 0, core: 1, k: 0 };
-const COMEBACK_PIT = [at('petals', 40, 12, 79, ELLIPSE, 'recess', { alpha: 0.49 }), at('gemcut', 26, 24, 59, { top: 0.5, shoulder: 0.42, r: 1.5, tip: 1.5 })];
-// G_8 Lazarus: a heartbeat in glass, the flat line carrying on either side recessed
-const LAZARUS_PULSE = [at('shield', 8, 5, 80, bar(8, 5, 2.5), 'recess', { alpha: 0.49, x: 28 }), at('pulse', 40, 34, 58, { by: 0.7664 })];
-// G_8b: two glass defib paddles (pad + handle), tilted in, with a recessed spark between them
-const LAZARUS_PADDLES = [at('sparkle', 14, 20, 65, null, 'recess', { alpha: 0.49 }),
-  { parts: [at('shield', 18, 11, 77, bar(18, 11, 3)), at('shield', 7, 16, 63, bar(7, 16, 3.5))], style: 'glass', shape: 'shield', x: 20, rot: 16 }];
+// G_7 Comeback Kid: a glass V (the dip and the climb back) with a glass ball resting in its low point
+const COMEBACK_V = [at('vee', 46, 30, 63, { t: 8 }), at('oval', 10, 10, 65)];
+// G_8 Lazarus: a heartbeat in glass, sharp corners, 6 px line on whole pixels
+const LAZARUS_PULSE = [at('pulse', 40, 34, 58, { by: 0.7627, r: 0.4, t: 6 })];
 
 // [letter, series, family note, kind, badges]; a badge is [name, catalogue rarity, tag, glyphs, extra]
 const NEW_FAMILIES = [
@@ -276,9 +268,9 @@ const NEW_FAMILIES = [
     ['Sold the Bottom', 'common', 'commiseration', [{ ...ringOf(cush(54, 54, 75), at('cushion', 38.57, 38.57, 55.71), 'recess'), bevelW: 2 },
       cush(20, 20, 75, 'glass', { light: { to: [0.141, 0.663] }, bevelW: 2 })]],
     ['Clean Slate', 'rare', 'behavioural', [ringOf(puff(3, 48, 34, 75), puff(3, 32, 21, 76))]],
-    // not from the family shape (your call): V recovery and Flatline to pulse, each with an alternate (G_7b, G_8b)
-    ['Comeback Kid', 'rare', 'behavioural', COMEBACK_V, { alt: ['Comeback Kid (alt)', COMEBACK_PIT] }],
-    ['Lazarus', 'rare', 'behavioural', LAZARUS_PULSE, { alt: ['Lazarus (alt)', LAZARUS_PADDLES] }],
+    // not from the family shape (your call): a V with a ball in it, and a heartbeat
+    ['Comeback Kid', 'rare', 'behavioural', COMEBACK_V],
+    ['Lazarus', 'rare', 'behavioural', LAZARUS_PULSE],
     ['Know When to Stop', 'rare', 'behavioural', [puff(3, 44, 30, 67), sz('oval', 38, 4, 92, null, 'recess', { alpha: 0.49 })]],
     ['Bug Hunter', 'rare', 'per bug fixed', [puff(4, 48, 32, 75), sz('oval', 5, 5, 76, null, 'recess', { alpha: 0.49, x: 7 })]],
     ['Zen Master', 'epic', 'behavioural', [ECHO, at('cushion', 38, 38, 55, null, 'glass', { light: { to: [0.178, 0.363] } })]],
@@ -371,8 +363,8 @@ const SENT = 'sent to you to redo in Figma';
 export const OPEN = {
   I_2: SENT,
   D_1: SENT,
-  G_7: 'new: V recovery; pick this or G_7b', G_7b: 'new: Out of the pit; pick this or G_7',
-  G_8: 'new: Flatline to pulse; pick this or G_8b', G_8b: 'new: Defib paddles; pick this or G_8',
+  G_7: 'V recovery: white ball, bigger, moved down; to review',
+  G_8: 'heartbeat: sharp corners, no dots; to review',
   J_3: 'flagged: inner icon misaligned',
   LV_999: SENT,
 };

@@ -93,7 +93,7 @@ The octagon is spare (`SPARE_SHAPES`). Names, rarities and tags of D, E, F, G an
 
 The glyphs are drawn from the family's own outline, never from another family: a flower with 3, 4, 5 then 6 petals (`petals`); the wavy seal gem itself, smaller, and rings of it; smaller U shields; clouds with 3 to 5 fluffs (`puff`) and the cushion itself (rings and slabs; glyphs can turn with `rot`); the pennant's notched flag. The rarer the badge, the fuller: the top of a family has two layers of its shape (recessed under glass, or a ring around a core) plus an echo of the gem.
 
-G_7 Comeback Kid and G_8 Lazarus are not drawn from the cushion (your call): G_7 is a glass V with a recessed ball in its low point (`vee`), G_8 a glass heartbeat (`pulse`) with the flat line carrying on recessed either side. Each has an alternate until you pick: G_7b, a glass gem rising out of a recessed pit; G_8b, two glass defib paddles with a recessed spark between.
+G_7 Comeback Kid and G_8 Lazarus are not drawn from the cushion (your call): G_7 is a glass V with a glass ball resting in its low point (`vee`), the pair set 3 px below centre; G_8 a glass heartbeat with sharp corners (`pulse`, 6 px line).
 
 D_2 to D_5, E_1 to E_5, F_1 to F_3, G_1 to G_6 and G_9 to G_12 follow your Figma frames (Hypernova Internal), matched layer by layer with the engine's own shapes (all within 0.35 px): sizes and tops as drawn, centred on the axis. G_2 Touch Grass and G_3 GM are your rounded rhombuses (`rhombus`, r 8), the one exception to the family-shape rule.
 
@@ -138,5 +138,5 @@ The Figma plugin in `figma-plugin/` pastes badges as native layers: one vector p
 - G_12 shows four edge lines (`edgeBars`) instead of dots, so its rarity shows by colour only.
 - From the Figma frames: G_2 and G_3 sat 0.5 px left of the axis (centred here). G_11's glass sits 1 px high and E_4's icon 0.8 px high, kept as drawn. Dot pairs that were 1 to 2 px off symmetric are mirrored. Bevels that were scaled to 0.5 or 1.3 px (D_5 echo, E_4) or lost their clip (F_2, F_3 recess) stay 1 px outside.
 - F_2 and F_3 have the gem 2 px higher than F_1 (as in Figma). E_1 is now glass, the same icon as E_2 in blue.
-- D_1 has no Figma redo yet. G_7 and G_8 have two designs each (G_7 / G_7b, G_8 / G_8b); all four stay marked Open until one of each is picked.
+- D_1 has no Figma redo yet. G_7 and G_8 are reworked after your notes and stay marked Open until you approve them.
 - The glyph facet applies to the Figma families too (A, B, C, H, I, K), so the Library compare now differs from those Figma originals by the facet.
