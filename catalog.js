@@ -26,20 +26,24 @@ export const FAMILIES = {
     plate: { shape: 'rhombus', w: 80, h: 92, y: 29, params: { r: 19.35 } },
     gem: { shape: 'hex', w: 58, h: 66, y: 42, split: false, params: { shoulder: 25, r: 4.8 } },
   },
+  // I: built like H (you liked the collection ladder): gem without the split, H's high light,
+  // a dark recess of the gem's own shape, then a glass one on top, a little off the recess's lines
   crest: {
-    label: 'Crest', light: 'center',
+    label: 'Crest', light: 'high',
     plate: { shape: 'crest', w: 90, h: 88, y: 30, params: { top: 0.411, mid: 0.4985, r: 13 } },
-    gem: { shape: 'triangle', w: 70, h: 66, y: 31, params: { r: 4 } },
+    gem: { shape: 'triangle', w: 70, h: 66, y: 31, split: false, params: { r: 4 } },
   },
   star: {
     label: 'Star', light: 'center',
     plate: { shape: 'rhombus', w: 60, h: 60, y: 45, params: { r: 24, tip: 18 } },
     gem: { shape: 'sparkle', w: 64, h: 88, y: 31 },
+    spec: { evenDots: true },
   },
   lens: {
     label: 'Star lens', light: 'center',
     plate: { shape: 'rhombus', w: 58, h: 84, y: 35, params: { r: 30, mid: 0.44, tip: 12, btip: 0 } },
     gem: { shape: 'sparkle', w: 64, h: 88, y: 31 },
+    spec: { evenDots: true },
   },
   // K_5: a faceted bezel (five flat facets) around a stone, measured from the 2x bitmap in Figma
   cut: {
@@ -81,7 +85,9 @@ export const BASE_FAMILIES = {
   ushield: {
     label: 'U shield', light: 'center',
     plate: { shape: 'shield', w: 86, h: 100, y: 25, params: { corner: 15.6, knee: 0.532, r: 50, tip: 11 } },
-    gem: { shape: 'shield', w: 62, h: 72, y: 39, params: { corner: 11.2, knee: 0.532, r: 36, tip: 8 } },
+    // the plate stays soft; the gem and the shields inside get sharp top corners and a sharp tip
+    // (you found it too round), the round flanks stay: soft outside, sharp inside, as on H
+    gem: { shape: 'shield', w: 62, h: 72, y: 39, params: { corner: 1.55, knee: 0.532, r: 36, tip: 1.55 } },
   },
   seal: {
     label: 'Wavy seal', light: 'center',
@@ -103,7 +109,12 @@ const G = {
   innerStar: { shape: 'sparkle', w: 40, h: 44, y: 53, style: 'recess', alpha: 0.21, blend: 'overlay' },
   coreStar: { shape: 'sparkle', w: 20, h: 26, y: 62, style: 'glass' },
   crystal: (style = 'glass') => ({ shape: 'hex', w: 18, h: 26, y: 62, style, params: { shoulder: 8, r: 2 } }),
+  triRecess: { shape: 'triangle', w: 46, h: 44, y: 46, style: 'recess', alpha: 0.49, params: { r: 2.5 } },
+  triCrystal: (style = 'glass') => ({ shape: 'triangle', w: 26, h: 24, y: 60, style, params: { r: 1.5 } }),
 };
+// crest dots on the plate's corners (top-left of each 2 x 2, mirrored): sides, top, bottom
+const CREST_DOTS = { side: [[38, 72], [110, 72]], top: [[59, 35], [89, 35]], bottom: [[74, 107]] };
+const crestDots = (...k) => ({ dots: k.flatMap((x) => CREST_DOTS[x]) });
 
 // glyphs inherit the family's lighting preset unless they set their own
 const B = (id, name, series, family, rarity, level, glyphs, extra = {}) => ({
@@ -152,12 +163,9 @@ export const FIGMA_BADGES = [
   B('H_2', 'Multi-Pair II', 'H. Collection ladder', 'rhombus', 'blue', 3, [G.rhRecess, G.crystal('glass-tint')]),
   B('H_3', 'Multi-Pair III', 'H. Collection ladder', 'rhombus', 'purple', 4, [G.rhRecess, G.crystal()]),
 
-  B('I_1', 'Referrer I', 'I. Referral milestones', 'crest', 'silver', 3, [
-    { shape: 'triangle', w: 32, h: 33, y: 52, style: 'glass' }]),
-  B('I_2', 'Rainmaker', 'I. Referral milestones', 'crest', 'purple', 4, [
-    { shape: 'triangle', w: 32, h: 33, y: 52, style: 'glass' }]),
-  B('I_3', 'Kingmaker', 'I. Referral milestones', 'crest', 'gold', 5, [
-    { shape: 'triangle', w: 32, h: 33, y: 52, style: 'glass' }]),
+  B('I_1', 'Referrer I', 'I. Referral milestones', 'crest', 'silver', 2, [G.triRecess, G.triCrystal()], crestDots('side')),
+  B('I_2', 'Rainmaker', 'I. Referral milestones', 'crest', 'purple', 4, [G.triRecess, G.triCrystal()], crestDots('top', 'side')),
+  B('I_3', 'Kingmaker', 'I. Referral milestones', 'crest', 'gold', 5, [G.triRecess, G.triCrystal()], crestDots('top', 'side', 'bottom')),
 
   B('K_1', 'Top 500', 'K. Competition & leaderboard', 'star', 'blue', 4, [{ shape: 'sparkle', w: 40, h: 44, y: 53, style: 'glass' }], { dotPhase: 'split' }),
   B('K_2', 'Top 100', 'K. Competition & leaderboard', 'star', 'purple', 4, [G.innerStar], { dotPhase: 'split' }),
@@ -183,11 +191,31 @@ export const SPARE_SHAPES = ['octagon'];
 // Colours follow the Figma badges (A, B, C, H, I, K): a badge takes the colour its catalogue
 // rarity has there, common silver, rare blue, epic purple, legendary gold. Colours may repeat
 // inside a family, as in Figma (A is silver four times). Every family runs from the lowest rarity
-// to the highest, and the rarer the badge, the fuller its icon. Dots: step + 1 on ladders, by rarity
-// on sets. Bronze and ruby are the level colours (with silver, gold and purple), not badge rarities.
+// to the highest, and the rarer the badge, the fuller its icon. Dots by rarity (see DOTS_BY_RARITY). Bronze and ruby are the level colours (with silver, gold and purple), not badge rarities.
 export const CLIMB = ['bronze', 'silver', 'blue', 'gold', 'ruby', 'purple'];
 export const RARITY_COLOUR = { common: 'silver', rare: 'blue', epic: 'purple', legendary: 'gold' };
 export const RARITY_DOTS = { common: 2, rare: 3, epic: 4, legendary: 5 };
+// Rarity carries the colour and the frame (catalogue, node 418:6334: "identical geometry within a
+// class"), so the dots follow rarity on every badge: common 2, rare 3, epic 4, legendary 5.
+// false = the old rule (step + 1 on ladders, Figma dots as drawn on A, B, C, H, I, K).
+export const DOTS_BY_RARITY = true;
+
+// catalogue rarities of the Figma families, in id order (B_6 is the $250M alt)
+const FIGMA_CATALOGUE = {
+  A: ['common', 'common', 'common', 'common', 'rare'],
+  B: ['common', 'common', 'common', 'rare', 'rare', 'rare', 'epic'],
+  C: ['common', 'common', 'rare', 'rare', 'epic'],
+  H: ['common', 'rare', 'epic'],
+  I: ['common', 'epic', 'legendary'],
+  K: ['rare', 'epic', 'epic', 'legendary', 'legendary'],
+};
+for (const b of FIGMA_BADGES) {
+  const rar = FIGMA_CATALOGUE[b.id[0]]?.[parseInt(b.id.slice(2), 10) - 1];
+  if (!rar) continue;
+  b.catalogue = rar;
+  b.rarity = b.id === 'K_5' ? b.rarity : RARITY_COLOUR[rar]; // B_4 $50M is rare: blue (was silver)
+  if (DOTS_BY_RARITY) b.level = RARITY_DOTS[rar];
+}
 
 // The inner glyphs are drawn from the family's own outline: fewer petals, fluffs or scallops than
 // the base, the same shield or pennant smaller, rings of it, and the gem's own echo. The rarer the
@@ -206,8 +234,11 @@ const bloom = (n, w, c, style = 'glass', top = 'petal', more = {}) => {
 // seal: shallow waves on a big core, a little taller than wide like the base
 const rosette = (n, w, c, style = 'glass', more = {}) =>
   sz('petals', w, Math.round(w * 1.12), c, { n, top: 'petal', ring: 0.84, size: 0.2, core: 0.9, k: 0.1 }, style, more);
-// U shield: the base gem's proportions at any width
-const ushP = (w) => ({ corner: (11.2 * w) / 62, knee: 0.532, r: (36 * w) / 62, tip: (8 * w) / 62 });
+// U shield: the base gem's proportions at any width; sharp top corners and tip (round = the old soft U)
+const ushP = (w, round = false) => {
+  const s = Math.max(1, +(0.025 * w).toFixed(2));
+  return { corner: round ? (11.2 * w) / 62 : s, knee: 0.532, r: (36 * w) / 62, tip: round ? (8 * w) / 62 : s };
+};
 const ush = (w, c, style = 'glass', more = {}) => sz('shield', w, Math.round((w * 72) / 62), c, ushP(w), style, more);
 // seal: the wavy seal gem itself, smaller (same outline, same waves)
 const seal = (w, c, style = 'glass', more = {}) => sz('wavyGem', w, Math.round((w * 75.094) / 66.607), c, null, style, more);
@@ -229,13 +260,14 @@ const flag = (w, c, style = 'glass', more = {}) => sz('banner', w, Math.round(w 
 
 // G_7 Comeback Kid: a glass V (the dip and the climb back) with a glass ball resting in its low point
 const COMEBACK_V = [at('vee', 46, 30, 63, { t: 8 }), at('oval', 10, 10, 65)];
-// G_8 Lazarus: a heartbeat in glass, sharp corners, 6 px line on whole pixels
-const LAZARUS_PULSE = [at('pulse', 40, 34, 58, { by: 0.7627, r: 0.4, t: 6 })];
+const RC = { alpha: 0.49 };
+// G_8 Lazarus: a phoenix, glass wings rising with a recessed flame for the head (your pick)
+const LAZARUS_PHOENIX = [at('teardrop', 10, 15, 54, null, 'recess', RC), at('wings', 50, 40, 60)];
 
 // [letter, series, family note, kind, badges]; a badge is [name, catalogue rarity, tag, glyphs, extra]
 const NEW_FAMILIES = [
   ['D', 'D. Trading-days ladder', 'counts trading days', 'ladder', [
-    ['Days 5', 'common', 'days i', [bloom(3, 30, 74, 'recess', 'gap', { alpha: 0.49 })]],
+    ['Days 5', 'common', 'days i', [sz('oval', 20, 20, 75, null, 'recess', { alpha: 0.49 })]],
     ['Days 25', 'common', 'days ii', [bloom(4, 32, 75, 'glass', 'gap')], { dots: dotsAt([34, 74], [74, 107]) }],
     ['Days 100', 'rare', 'days iii', [ECHO, at('petals', 32, 30, 60, { n: 6, top: 'gap', ring: 0.8, size: 0.25, core: 0.78, k: 0.13 }, 'glass',
       { light: { to: [0.288, 0.859] }, bevel: 'inside' })], { dots: dotsAt([51, 41], [51, 109]) }],
@@ -249,7 +281,7 @@ const NEW_FAMILIES = [
     ['Strong Hand', 'epic', 'nova 70+', [seal(34, 75)], { dots: dotsAt([39, 49], [74, 117]) }],
     ['Elite', 'legendary', 'nova 85+', [ECHO, seal(38, 75), seal(16, 75, 'recess', { alpha: 0.49 })], { dots: dotsAt([34, 74], [74, 31], [74, 118]) }],
     ['The Maxer', 'legendary', 'nova 95+', [ringOf(at('wavyGem', 52.24, 58.77, 45.5), at('wavyGem', 36.56, 41.79, 53.34), 'recess'),
-      at('wavyGem', 18.28, 20.89, 63.79)], { ornaments: { topBar: true }, dots: dotsAt([34, 74], [50, 37], [74, 118]) }],
+      at('wavyGem', 18.28, 20.89, 63.79)], { ornaments: { topBar: true }, facets: false, dots: dotsAt([34, 74], [50, 37], [74, 118]) }],
     ['Comeback', 'rare', 'nova comeback', [ringOf(at('wavyGem', 40, 45, 53), at('wavyGem', 28, 32, 59), 'recess'), seal(14, 75)], { side: true, dots: dotsAt([39, 49], [74, 119]) }],
   ]],
   ['F', 'F. Identity / OG', 'time-gated, never retrofitted', 'set', [
@@ -268,9 +300,9 @@ const NEW_FAMILIES = [
     ['Sold the Bottom', 'common', 'commiseration', [{ ...ringOf(cush(54, 54, 75), at('cushion', 38.57, 38.57, 55.71), 'recess'), bevelW: 2 },
       cush(20, 20, 75, 'glass', { light: { to: [0.141, 0.663] }, bevelW: 2 })]],
     ['Clean Slate', 'rare', 'behavioural', [ringOf(puff(3, 48, 34, 75), puff(3, 32, 21, 76))]],
-    // not from the family shape (your call): a V with a ball in it, and a heartbeat
+    // not from the family shape (your call): a V with a ball in it, and a phoenix
     ['Comeback Kid', 'rare', 'behavioural', COMEBACK_V],
-    ['Lazarus', 'rare', 'behavioural', LAZARUS_PULSE],
+    ['Lazarus', 'rare', 'behavioural', LAZARUS_PHOENIX],
     ['Know When to Stop', 'rare', 'behavioural', [puff(3, 44, 30, 67), sz('oval', 38, 4, 92, null, 'recess', { alpha: 0.49 })]],
     ['Bug Hunter', 'rare', 'per bug fixed', [puff(4, 48, 32, 75), sz('oval', 5, 5, 76, null, 'recess', { alpha: 0.49, x: 7 })]],
     ['Zen Master', 'epic', 'behavioural', [ECHO, at('cushion', 38, 38, 55, null, 'glass', { light: { to: [0.178, 0.363] } })]],
@@ -278,13 +310,14 @@ const NEW_FAMILIES = [
       { level: 0, ornaments: { edgeBars: true } }],
   ]],
   ['J', 'J. Repeatables', 'no seasons, no resets', 'set', [
-    ['Profitable Week', 'common', 'weekly', [flag(28, 72)]],
-    ['Clean-Risk Week', 'common', 'weekly', [ringOf(flag(32, 72), flag(18, 69))]],
-    ['Personal Best', 'common', 'monthly', [flag(36, 76, 'recess', { alpha: 0.49 }), flag(20, 75)]],
+    // bigger icons (your call), every layer on one centre so the recess and the glass stay concentric
+    ['Profitable Week', 'common', 'weekly', [flag(44, 73)]],
+    ['Clean-Risk Week', 'common', 'weekly', [ringOf(flag(50, 73), flag(30, 73))]],
+    ['Personal Best', 'common', 'monthly', [flag(50, 73, 'recess', { alpha: 0.49 }), flag(32, 73)]],
   ]],
 ];
 
-// colour by catalogue rarity (as in Figma); dots = step + 1 on ladders, by rarity on sets.
+// colour by catalogue rarity (as in Figma); dots by rarity (DOTS_BY_RARITY), or step + 1 on ladders.
 // a side badge (E Comeback) takes its catalogue dots
 export const NEW_BADGES = NEW_FAMILIES.flatMap(([L, series, note, kind, list]) => {
   const ladder = list.filter(([, , , , x]) => !(x && x.side));
@@ -293,10 +326,12 @@ export const NEW_BADGES = NEW_FAMILIES.flatMap(([L, series, note, kind, list]) =
     const step = ladder.indexOf(list[i]);
     const ladderStep = kind === 'ladder' && !side;
     const rarity = colour || RARITY_COLOUR[rar];
-    const level = ladderStep ? step + 2 : RARITY_DOTS[rar];
+    const level = ladderStep && !DOTS_BY_RARITY ? step + 2 : RARITY_DOTS[rar];
     const mk = (id, nm, gl, more = {}) => ({ ...B(id, nm, series, FAMILY_SHAPES[L], rarity, level, JSON.parse(JSON.stringify(gl)), { ...rest, ...more }), tag, catalogue: rar, familyNote: note });
-    // alt: a second design for the same badge, shown next to it (id + 'b') until you pick one
-    return [mk(`${L}_${i + 1}`, name, glyphs), ...(alt ? [mk(`${L}_${i + 1}b`, alt[0], alt[1], alt[2] || {})] : [])];
+    // alt: other designs for the same badge, shown next to it (id + b, c, d...) until you pick one;
+    // one [name, glyphs, extra] or a list of them
+    const alts = !alt ? [] : Array.isArray(alt[0]) ? alt : [alt];
+    return [mk(`${L}_${i + 1}`, name, glyphs), ...alts.map((a, k) => ({ ...mk(`${L}_${i + 1}${'bcdefgh'[k]}`, a[0], a[1], a[2] || {}), option: true }))];
   });
 });
 
@@ -361,10 +396,6 @@ export const ALL_BADGES = [...FIGMA_BADGES, ...NEW_BADGES].sort((a, b) => ORDER.
 // in Figma). Shown as "Open" in the Library. Keyed by current id; "was" = the id when flagged.
 const SENT = 'sent to you to redo in Figma';
 export const OPEN = {
-  I_2: SENT,
-  D_1: SENT,
-  G_7: 'V recovery: white ball, bigger, moved down; to review',
-  G_8: 'heartbeat: sharp corners, no dots; to review',
-  J_3: 'flagged: inner icon misaligned',
+  I_1: 'built like H (recess + glass triangle, corner dots); to review', I_2: 'built like H, dots on the corners; to review', I_3: 'built like H; to review',
   LV_999: SENT,
 };

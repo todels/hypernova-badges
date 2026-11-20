@@ -278,6 +278,25 @@ export const SHAPES = {
       return { pts, fit: true };
     },
   },
+  // coffin: flat top, wide shoulders, narrower flat foot (G_8 option)
+  coffin: {
+    label: 'Coffin', kind: 'glyph',
+    params: { top: 0.62, sh: 0.26, bot: 0.5, r: 2 },
+    gen: (w, h, { top = 0.62, sh = 0.26, bot = 0.5, r = 2 }) => ({ pts: [[0, 0], [(top * w) / 2, 0, r], [w / 2, sh * h, r], [(bot * w) / 2, h, r], [0, h]], fit: true }),
+  },
+  // ankh outline (loop, bar, flared stem); the loop's hole is a separate oval part (evenodd)
+  ankh: {
+    label: 'Ankh', kind: 'glyph', ref: [40, 56],
+    half: P('M0 0 C6.075 0 11 5.373 11 12 C11 16.9 8.4 20.9 4.5 23 L4.5 24 L17.5 24 C18.881 24 20 25.119 20 26.5 L20 28.5 C20 29.881 18.881 31 17.5 31 L4 31 L5.8 53.6 C5.9 55 5 56 3.6 56 L0 56'),
+  },
+  // wings: two raised wings with stepped feathers meeting in a tail (phoenix, G_8 option)
+  wings: {
+    label: 'Wings', kind: 'glyph',
+    params: { r: 1.5 },
+    gen: (w, h, { r = 1.5 }) => ({
+      pts: [[0, 0.4 * h, 1], [0.5 * w, 0, r], [0.45 * w, 0.22 * h, r], [0.33 * w, 0.25 * h], [0.37 * w, 0.42 * h, r], [0.24 * w, 0.45 * h], [0.22 * w, 0.64 * h, r], [0.1 * w, 0.66 * h], [0, h, 1]], fit: true,
+    }),
+  },
   heart: {
     label: 'Heart', kind: 'glyph', ref: [26, 23],
     half: P('M0 5.2 C1.6 1.9 4.4 0 7.4 0 C10.9 0 13 2.8 13 6.6 C13 12.6 6.6 17.8 0 23'),
@@ -677,7 +696,10 @@ function snapDot(T, p, inset, clear, onAxis) {
 }
 export function dotPositions(spec) {
   spec = resolveDerived(spec);
-  const n = spec.level | 0;
+  let n = spec.level | 0;
+  // plates whose centre line is covered top and bottom by the gem (K star, lens) have no spot for
+  // the odd dot, so odd counts round up: a rarer badge never shows fewer dots
+  if (spec.evenDots && n % 2) n += 1;
   if (!n || !spec.plate) return [];
   // dots placed by hand in Figma (top-left of each 2 x 2), used while their count matches the level
   if (Array.isArray(spec.dots) && spec.dots.length === n) return spec.dots.map(([x, y]) => [x, y]);
@@ -1053,10 +1075,48 @@ export function textGeometry(g, x = 0) {
   let pen = 0;
   const pos = chars.map((c, i) => { const p = pen; pen += F.glyphs[c].adv + (i < chars.length - 1 ? track : 0); return p; });
   const x0 = pos[0] + F.glyphs[chars[0]].x0, x1 = pos[pos.length - 1] + F.glyphs[chars[chars.length - 1]].x1;
-  const left = CX + x - ((x1 - x0) * s) / 2 - x0 * s;
+  let left = CX + x - ((x1 - x0) * s) / 2 - x0 * s;
   const top = g.y ?? CX - g.h / 2;
-  const d = chars.map((c, i) => moveD(F.glyphs[c].d, s, left + pos[i] * s, top)).join('');
+  const draw = () => chars.map((c, i) => moveD(F.glyphs[c].d, s, left + pos[i] * s, top)).join('');
+  let d = draw();
+  // a single digit sits on its visual weight, not its box: a 1 centres on its stem, not stem + flag,
+  // so the gem's centre line runs through the middle of it
+  if (chars.length === 1 && g.optical !== false) { left += CX + x - areaCentroidX(d); d = draw(); }
   return { d, box: { x: left + x0 * s, y: top, w: (x1 - x0) * s, h: g.h } };
+}
+
+// x of the area centroid of a path (signed areas, so counters subtract), curves sampled
+function areaCentroidX(d) {
+  const t = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) || [];
+  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, A = 0, Cx = 0, poly = [];
+  const n = () => +t[i++];
+  const close = () => {
+    for (let k = 0; k < poly.length; k++) {
+      const [ax, ay] = poly[k], [bx, by] = poly[(k + 1) % poly.length], c = ax * by - bx * ay;
+      A += c; Cx += (ax + bx) * c;
+    }
+    poly = [];
+  };
+  while (i < t.length) {
+    if (/[a-zA-Z]/.test(t[i])) cmd = t[i++];
+    if (cmd === 'Z' || cmd === 'z') { close(); x = sx; y = sy; continue; }
+    if (cmd === 'M') { if (poly.length) close(); x = n(); y = n(); sx = x; sy = y; poly.push([x, y]); cmd = 'L'; continue; }
+    if (cmd === 'L') { x = n(); y = n(); poly.push([x, y]); }
+    else if (cmd === 'H') { x = n(); poly.push([x, y]); }
+    else if (cmd === 'V') { y = n(); poly.push([x, y]); }
+    else if (cmd === 'C' || cmd === 'Q') {
+      const a = cmd === 'C' ? [n(), n(), n(), n()] : [n(), n()], p0 = [x, y];
+      x = n(); y = n();
+      for (let k = 1; k <= 12; k++) {
+        const u = k / 12, v = 1 - u;
+        poly.push(cmd === 'C'
+          ? [v ** 3 * p0[0] + 3 * v * v * u * a[0] + 3 * v * u * u * a[2] + u ** 3 * x, v ** 3 * p0[1] + 3 * v * v * u * a[1] + 3 * v * u * u * a[3] + u ** 3 * y]
+          : [v * v * p0[0] + 2 * v * u * a[0] + u * u * x, v * v * p0[1] + 2 * v * u * a[1] + u * u * y]);
+      }
+    } else throw new Error('areaCentroidX: ' + cmd);
+  }
+  if (poly.length) close();
+  return A ? Cx / (3 * A) : CX;
 }
 
 export function glyphGeometry(g, x = 0) {
@@ -1205,6 +1265,10 @@ export const GLASS_FACET = { silver: 'left', gold: 'left', bronze: 'left', blue:
 export function facetOf(g, spec = {}, pal = null) {
   const style = g.style || 'glass';
   if (style === 'inlay' || style === 'solid') return null;
+  // numbers are not symmetric (a 1 has its flag on the left), so the split would cut them off-centre
+  if (g.text != null && g.facet === undefined) return null;
+  // a badge drawn without facets in Figma (E_4 The Maxer) turns them off for all its glyphs
+  if (spec.facets === false && g.facet === undefined) return null;
   let v = g.facet;
   if (v === undefined) v = style === 'recess' ? 'left' : (spec.glassFacet ?? GLASS_FACET[spec.customColor ? '' : spec.gem?.bezel?.stone || spec.gem?.rarity || spec.rarity] ?? 'left');
   if (!v) return null;
